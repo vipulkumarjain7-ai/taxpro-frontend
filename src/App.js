@@ -660,25 +660,22 @@ function AIAssistant() {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
 
   const send = async (text) => {
-    const msg = text || input.trim();
-    if (!msg || loading) return;
-    setInput("");
-    setMsgs(prev => [...prev, { role:"user", content:msg }]);
-    setLoading(true);
-    try {
-      const history = msgs.map(m => ({ role:m.role, content:m.content }));
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000,
-          system:"You are an expert Indian GST consultant for a Chartered Accountant. Deep expertise in CGST/IGST Acts, ITC Sections 16-18, GSTR returns, GST notices (DRC-01, ASMT-10, SCN), reconciliation, e-invoicing, RCM. Be concise and cite sections when relevant.",
-          messages:[...history,{role:"user",content:msg}] })
-      });
-      const data = await res.json();
-      setMsgs(prev=>[...prev,{role:"assistant",content:data.content?.[0]?.text||"Sorry, could not process."}]);
-    } catch { setMsgs(prev=>[...prev,{role:"assistant",content:"Connection error. Try again."}]); }
-    setLoading(false);
-  };
-
+  const msg = text || input.trim();
+  if (!msg || loading) return;
+  setInput("");
+  setMsgs(prev => [...prev, { role:"user", content:msg }]);
+  setLoading(true);
+  try {
+    const history = msgs.map(m => ({ role:m.role, content:m.content }));
+    const data = await api("/ai/chat", "POST", {
+      messages: [...history, { role:"user", content:msg }]
+    }, token);
+    setMsgs(prev => [...prev, { role:"assistant", content: data.reply }]);
+  } catch(e) {
+    setMsgs(prev => [...prev, { role:"assistant", content:"Error. Try again." }]);
+  }
+  setLoading(false);
+};
   const chips = ["How to respond to DRC-01?","GSTR-2B vs 2A differences","ITC reversal Rule 42","Section 16(4) time limit","GSTR-9 due date FY 2024-25"];
 
   return (
