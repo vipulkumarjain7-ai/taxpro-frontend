@@ -651,7 +651,7 @@ function Reconciliation({ token, toast }) {
   );
 }
 
-function AIAssistant() {
+function AIAssistant({ token }) {
   const [msgs, setMsgs] = useState([{ role:"assistant", content:"Namaste! I am your AI GST Assistant.\n\nAsk me anything about GST — notices, ITC, reconciliation, returns, DRC-01 replies, or any compliance question." }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -660,22 +660,23 @@ function AIAssistant() {
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
 
   const send = async (text) => {
-  const msg = text || input.trim();
-  if (!msg || loading) return;
-  setInput("");
-  setMsgs(prev => [...prev, { role:"user", content:msg }]);
-  setLoading(true);
-  try {
-    const history = msgs.map(m => ({ role:m.role, content:m.content }));
-    const data = await api("/ai/chat", "POST", {
-      messages: [...history, { role:"user", content:msg }]
-    }, token);
-    setMsgs(prev => [...prev, { role:"assistant", content: data.reply }]);
-  } catch(e) {
-    setMsgs(prev => [...prev, { role:"assistant", content:"Error. Try again." }]);
-  }
-  setLoading(false);
-};
+    const msg = text || input.trim();
+    if (!msg || loading) return;
+    setInput("");
+    setMsgs(prev => [...prev, { role:"user", content:msg }]);
+    setLoading(true);
+    try {
+      const history = msgs.map(m => ({ role:m.role, content:m.content }));
+      const data = await api("/ai/chat", "POST", {
+        messages: [...history, { role:"user", content:msg }]
+      }, token);
+      setMsgs(prev => [...prev, { role:"assistant", content: data.reply }]);
+    } catch(e) {
+      setMsgs(prev => [...prev, { role:"assistant", content:"Error. Try again." }]);
+    }
+    setLoading(false);
+  };
+
   const chips = ["How to respond to DRC-01?","GSTR-2B vs 2A differences","ITC reversal Rule 42","Section 16(4) time limit","GSTR-9 due date FY 2024-25"];
 
   return (
@@ -759,7 +760,7 @@ export default function App() {
           {view==="reconciliation" && <Reconciliation token={token} toast={showToast} />}
           {view==="notices"        && <Notices        token={token} toast={showToast} />}
           {view==="returns"        && <Returns        token={token} toast={showToast} />}
-          {view==="ai"             && <AIAssistant />}
+          {view==="ai" && <AIAssistant token={token} />}
         </div>
       </div>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)} />}
