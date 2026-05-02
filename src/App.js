@@ -37,6 +37,7 @@ const S = {
   btn:       { padding:"9px 18px", borderRadius:8, border:"none", background:"#1F6FEB", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" },
   btnGhost:  { padding:"7px 14px", borderRadius:8, border:"1px solid #30363D", background:"transparent", color:"#8B949E", cursor:"pointer", fontSize:12, fontFamily:"inherit" },
   btnDanger: { padding:"7px 14px", borderRadius:8, border:"1px solid #6e1c1c", background:"transparent", color:"#f85149", cursor:"pointer", fontSize:12, fontFamily:"inherit" },
+  btnGreen:  { padding:"9px 18px", borderRadius:8, border:"none", background:"#238636", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:600, fontFamily:"inherit" },
   label:     { fontSize:12, color:"#8B949E", display:"block", marginBottom:5 },
   formGroup: { marginBottom:14 },
   aiWrap:    { display:"flex", flexDirection:"column", height:"calc(100vh - 100px)" },
@@ -81,8 +82,8 @@ const Spinner = () => (
 
 const Toast = ({ msg, type, onClose }) => (
   <div style={{ position:"fixed", bottom:24, right:24, zIndex:999, background:type==="error"?"#2d0e0e":"#0d2818", border:`1px solid ${type==="error"?"#6e1c1c":"#238636"}`, color:type==="error"?"#f85149":"#3fb950", padding:"12px 18px", borderRadius:10, fontSize:13, maxWidth:320, display:"flex", alignItems:"center", gap:10 }}>
-    <span>{msg}</span>
-    <button onClick={onClose} style={{ background:"none", border:"none", color:"inherit", cursor:"pointer", fontSize:16, marginLeft:"auto" }}>x</button>
+  <span>{msg}</span>
+  <button onClick={onClose} style={{ background:"none", border:"none", color:"inherit", cursor:"pointer", fontSize:16, marginLeft:"auto" }}>x</button>
   </div>
 );
 
@@ -251,6 +252,7 @@ function Clients({ token, toast }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name:"", gstin:"", state:"", type:"Trader", turnover:"", notes:"", status:"compliant" });
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -279,17 +281,48 @@ function Clients({ token, toast }) {
     catch(e) { toast(e.message,"error"); }
   };
 
+  const importExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API}/import/clients`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) { toast(data.message, "success"); load(); }
+      else toast(data.message, "error");
+    } catch(e) { toast("Import failed", "error"); }
+    setImporting(false);
+    e.target.value = "";
+  };
+
   return (
     <div>
-      <div style={{ display:"flex", gap:10, marginBottom:14, alignItems:"center" }}>
-        <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()} placeholder="Search by name or GSTIN..." style={{ ...S.input, width:280 }} />
+      <div style={{ display:"flex", gap:10, marginBottom:14, alignItems:"center", flexWrap:"wrap" }}>
+        <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()} placeholder="Search by name or GSTIN..." style={{ ...S.input, width:250 }} />
         <button onClick={load} style={S.btnGhost}>Search</button>
-        <button onClick={openAdd} style={{ ...S.btn, marginLeft:"auto" }}>+ Add Client</button>
+        <div style={{ marginLeft:"auto", display:"flex", gap:8 }}>
+          <label style={{ ...S.btnGreen, cursor:"pointer", display:"inline-block" }}>
+            {importing ? "Importing..." : "Import Excel"}
+            <input type="file" accept=".xlsx,.xls,.csv" onChange={importExcel} style={{ display:"none" }} />
+          </label>
+          <button onClick={openAdd} style={S.btn}>+ Add Client</button>
+        </div>
       </div>
+
+      <div style={{ background:"#0c1d2e", border:"1px solid #1f4872", borderRadius:8, padding:"8px 12px", marginBottom:12, fontSize:12, color:"#58a6ff" }}>
+        Excel format for import: Columns should be — Name | GSTIN | State | Type | Turnover
+      </div>
+
       {loading ? <Spinner /> : (
         <div style={S.card}>
           {clients.length===0
-            ? <div style={{ textAlign:"center", padding:40, color:"#8B949E" }}>No clients yet. Click Add Client.</div>
+            ? <div style={{ textAlign:"center", padding:40, color:"#8B949E" }}>No clients yet. Click Add Client or Import Excel.</div>
             : <table style={S.tbl}>
                 <thead><tr>{["Name","GSTIN","State","Type","Status","Notices","Turnover","Actions"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
                 <tbody>
@@ -670,7 +703,7 @@ function AIAssistant({ token }) {
       const data = await api("/ai/chat", "POST", {
         messages: [...history, { role:"user", content:msg }]
       }, token);
-      setMsgs(prev => [...prev, { role:"assistant", content: data.reply }]);
+      setMsgs(prev => [...prev, { role:"assistant", content: data.reply || "Sorry, could not process." }]);
     } catch(e) {
       setMsgs(prev => [...prev, { role:"assistant", content:"Error. Try again." }]);
     }
@@ -760,7 +793,7 @@ export default function App() {
           {view==="reconciliation" && <Reconciliation token={token} toast={showToast} />}
           {view==="notices"        && <Notices        token={token} toast={showToast} />}
           {view==="returns"        && <Returns        token={token} toast={showToast} />}
-          {view==="ai" && <AIAssistant token={token} />}
+          {view==="ai"             && <AIAssistant    token={token} />}
         </div>
       </div>
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)} />}
