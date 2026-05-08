@@ -1,8 +1,5 @@
-cat > /mnt/user-data/outputs/App.js << 'ENDOFFILE'
 import { useState, useRef, useEffect, useCallback } from "react";
-
 const API = process.env.REACT_APP_API || "https://taxpro-backend-xi90.onrender.com/api";
-
 const api = async (path, method="GET", body=null, token=null) => {
   const headers = { "Content-Type":"application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -207,7 +204,7 @@ function Clients({token,toast}) {
           <button onClick={openAdd} style={S.btn}>+ Add Client</button>
         </div>
       </div>
-      <div style={{background:"#0c1d2e",border:"1px solid #1f4872",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#58a6ff"}}>
+      <div style={{background:"#8f9e03",border:"1px solid #1f4872",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#58a6ff"}}>
         Excel columns: Name | GSTIN | State | Type | Turnover
       </div>
       {loading?<Spinner/>:(
