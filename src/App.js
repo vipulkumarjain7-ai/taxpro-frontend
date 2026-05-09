@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+
 const API = process.env.REACT_APP_API || "https://taxpro-backend-xi90.onrender.com/api";
+
 const api = async (path, method="GET", body=null, token=null) => {
   const headers = { "Content-Type":"application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -155,6 +157,9 @@ const STATES=["Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh
 const TYPES=["Manufacturer","Trader","Exporter","Importer","Service","Composition"];
 
 function Clients({token,toast}) {
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState(null);
+  const [showVerify, setShowVerify] = useState(false);
   const [clients,setClients]=useState([]);
   const [loading,setLoading]=useState(true);
   const [q,setQ]=useState("");
@@ -193,6 +198,18 @@ function Clients({token,toast}) {
     }catch(e){toast("Import failed","error");}
     setImporting(false); e.target.value="";
   };
+  const verifyGSTIN = async (gstin) => {
+  setVerifyResult(null);
+  setShowVerify(true);
+  setVerifying(true);
+  try {
+    const data = await api(`/gstin/search/${gstin}`, "GET", null, token);
+    setVerifyResult(data);
+  } catch(e) {
+    setVerifyResult({ success: false, message: e.message });
+  }
+  setVerifying(false);
+};
 
   return(
     <div>
@@ -202,9 +219,14 @@ function Clients({token,toast}) {
         <div style={{marginLeft:"auto",display:"flex",gap:8}}>
           <label style={{...S.btnG,cursor:"pointer",display:"inline-block"}}>{importing?"Importing...":"📥 Import Excel"}<input type="file" accept=".xlsx,.xls,.csv" onChange={importExcel} style={{display:"none"}}/></label>
           <button onClick={openAdd} style={S.btn}>+ Add Client</button>
+          <button
+  onClick={() => verifyGSTIN(c.gstin)}
+  style={{ padding:"5px 10px", borderRadius:6, border:"1px solid #238636", background:"transparent", color:"#3fb950", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>
+  ✓ Verify GSTIN
+</button>
         </div>
       </div>
-      <div style={{background:"#8f9e03",border:"1px solid #1f4872",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#58a6ff"}}>
+      <div style={{background:"#0c1d2e",border:"1px solid #1f4872",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#58a6ff"}}>
         Excel columns: Name | GSTIN | State | Type | Turnover
       </div>
       {loading?<Spinner/>:(
@@ -228,6 +250,44 @@ function Clients({token,toast}) {
           )}
         </div>
       )}
+      {showVerify && (
+  <Modal title="GSTIN Verification" onClose={() => { setShowVerify(false); setVerifyResult(null); }}>
+    {verifying && <div style={{ textAlign:"center", padding:30, color:"#8B949E" }}>🔍 Searching GST Portal...</div>}
+    {verifyResult && (
+      <div>
+        <div style={{ padding:12, borderRadius:8, marginBottom:16, background: verifyResult.valid?"#0d2818":"#2d0e0e", border:`1px solid ${verifyResult.valid?"#238636":"#6e1c1c"}`, color: verifyResult.valid?"#3fb950":"#f85149", textAlign:"center", fontWeight:600, fontSize:14 }}>
+          {verifyResult.valid ? "✅ GSTIN is Valid" : "❌ Invalid GSTIN"}
+        </div>
+        {verifyResult.valid && verifyResult.details && (
+          <div style={{ background:"#0D1117", borderRadius:8, padding:14 }}>
+            {[
+              ["GSTIN",           verifyResult.details.gstin],
+              ["Legal Name",      verifyResult.details.legal_name],
+              ["Trade Name",      verifyResult.details.trade_name],
+              ["State",           verifyResult.details.state],
+              ["PAN",             verifyResult.details.pan],
+              ["GST Status",      verifyResult.details.status],
+              ["Taxpayer Type",   verifyResult.details.taxpayer_type],
+              ["Registered On",   verifyResult.details.registration_date],
+              ["Business Nature", verifyResult.details.business_nature],
+              ["Address",         verifyResult.details.address],
+            ].filter(([,v]) => v).map(([label, value]) => (
+              <div key={label} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid #21262D" }}>
+                <span style={{ color:"#8B949E", fontSize:12, minWidth:120 }}>{label}</span>
+                <span style={{ color:"#E6EDF3", fontSize:12, fontWeight:500, textAlign:"right", maxWidth:"60%" }}>{value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {verifyResult.valid && !verifyResult.online && (
+          <div style={{ marginTop:10, padding:10, background:"#0c1d2e", border:"1px solid #1f4872", borderRadius:8, fontSize:12, color:"#58a6ff" }}>
+            ℹ️ Live data from GST Portal unavailable. Format is valid.
+          </div>
+        )}
+      </div>
+    )}
+  </Modal>
+)}
       {showModal&&(
         <Modal title={editing?"Edit Client":"Add Client"} onClose={()=>setShowModal(false)}>
           {[{l:"Client Name *",k:"name",ph:"Sharma Textiles Pvt Ltd"},{l:"GSTIN *",k:"gstin",ph:"09AABCS1429B1Z7"},{l:"Turnover",k:"turnover",ph:"2.4 Cr"}].map(f=>(
