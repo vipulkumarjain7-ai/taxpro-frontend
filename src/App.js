@@ -220,7 +220,7 @@ function Clients({token,toast}) {
           <label style={{...S.btnG,cursor:"pointer",display:"inline-block"}}>{importing?"Importing...":"📥 Import Excel"}<input type="file" accept=".xlsx,.xls,.csv" onChange={importExcel} style={{display:"none"}}/></label>
           <button onClick={openAdd} style={S.btn}>+ Add Client</button>
           <button
-  onClick={() => verifyGSTIN(client.gstin)}
+  onClick={() => verifyGSTIN(form.gstin)}
   style={{ padding:"5px 10px", borderRadius:6, border:"1px solid #238636", background:"transparent", color:"#3fb950", cursor:"pointer", fontSize:11, fontFamily:"inherit" }}>
   ✓ Verify GSTIN
 </button>
