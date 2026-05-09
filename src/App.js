@@ -929,6 +929,369 @@ function StaffManager({token,toast}) {
   );
 }
 
+function GSTR2AImport({ token, toast }) {
+  const [clients,      setClients]      = useState([]);
+  const [clientId,     setClientId]     = useState("");
+  const [period,       setPeriod]       = useState("FY 2024-25");
+  const [file,         setFile]         = useState(null);
+  const [preview,      setPreview]      = useState(null);
+  const [importing,    setImporting]    = useState(false);
+  const [previewing,   setPreviewing]   = useState(false);
+  const [imported,     setImported]     = useState(null);
+  const [step,         setStep]         = useState(1); // 1=upload, 2=preview, 3=done
+
+  const PERIODS = ["FY 2024-25","FY 2023-24","FY 2022-23","FY 2021-22"];
+  const fmt = n => `Rs.${Number(n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",")}`;
+
+  useEffect(() => {
+    api("/clients","GET",null,token)
+      .then(d => { setClients(d.clients); if(d.clients[0]) setClientId(d.clients[0].id); });
+  }, [token]);
+
+  // Preview file before importing
+  const previewFile = async () => {
+    if (!file) return toast("Please select a file","error");
+    setPreviewing(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API}/gstr2a/preview`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPreview(data.preview);
+        setStep(2);
+      } else {
+        toast(data.message, "error");
+      }
+    } catch(e) { toast("Preview failed","error"); }
+    setPreviewing(false);
+  };
+
+  // Import to database
+  const importData = async () => {
+    if (!file || !clientId) return toast("Select client and file","error");
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("client_id", clientId);
+      formData.append("period", period);
+      const res = await fetch(`${API}/gstr2a/import`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.success) {
+        setImported(data);
+        setStep(3);
+        toast(data.message, "success");
+      } else {
+        toast(data.message, "error");
+      }
+    } catch(e) { toast("Import failed","error"); }
+    setImporting(false);
+  };
+
+  // Download template
+  const downloadTemplate = async () => {
+    const res = await fetch(`${API}/gstr2a/template`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const blob = await res.blob();
+    const url  = window.URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = "GSTR2A_Template.xlsx";
+    a.click();
+  };
+
+  const reset = () => {
+    setFile(null); setPreview(null); setImported(null); setStep(1);
+  };
+
+  return (
+    <div>
+      {/* Step indicator */}
+      <div style={{ display:"flex", gap:0, marginBottom:20 }}>
+        {[
+          { n:1, label:"Upload File" },
+          { n:2, label:"Preview Data" },
+          { n:3, label:"Import Done" },
+        ].map((s,i) => (
+          <div key={s.n} style={{ display:"flex", alignItems:"center", flex:1 }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flex:1 }}>
+              <div style={{ width:32, height:32, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:13,
+                background: step>=s.n ? "#1F6FEB" : "#21262D",
+                color: step>=s.n ? "#fff" : "#8B949E",
+                border: step===s.n ? "2px solid #58a6ff" : "none"
+              }}>{step>s.n ? "✓" : s.n}</div>
+              <div style={{ fontSize:11, color: step>=s.n?"#58a6ff":"#8B949E", marginTop:4 }}>{s.label}</div>
+            </div>
+            {i<2 && <div style={{ height:2, flex:1, background: step>s.n?"#1F6FEB":"#21262D", marginBottom:20 }}/>}
+          </div>
+        ))}
+      </div>
+
+      {/* Step 1 — Upload */}
+      {step === 1 && (
+        <div>
+          {/* How to download guide */}
+          <div style={{ ...S.card, background:"#0c1d2e", border:"1px solid #1f4872", marginBottom:16 }}>
+            <div style={{ fontSize:13, fontWeight:600, color:"#58a6ff", marginBottom:10 }}>
+              📋 How to download GSTR-2A from GST Portal
+            </div>
+            {[
+              "Login to gst.gov.in with client's credentials",
+              "Click Services → Returns → Returns Dashboard",
+              "Select Financial Year and Return Period (month/quarter)",
+              "Find GSTR-2A and click View / Download",
+              "Click 'Generate File' and wait for it to process",
+              "Download the Excel or JSON file",
+              "Upload that file below",
+            ].map((step, i) => (
+              <div key={i} style={{ display:"flex", gap:10, padding:"5px 0", fontSize:12, color:"#C9D1D9" }}>
+                <span style={{ color:"#1F6FEB", fontWeight:700, minWidth:20 }}>{i+1}.</span>
+                <span>{step}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={S.card}>
+            <div style={{ fontSize:13, fontWeight:600, color:"#E6EDF3", marginBottom:16 }}>
+              Import GSTR-2A
+            </div>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
+              <div>
+                <label style={S.label}>Select Client *</label>
+                <select style={{ ...S.select, width:"100%" }} value={clientId} onChange={e=>setClientId(e.target.value)}>
+                  <option value="">Select client</option>
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.name} — {c.gstin}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={S.label}>Financial Year *</label>
+                <select style={{ ...S.select, width:"100%" }} value={period} onChange={e=>setPeriod(e.target.value)}>
+                  {PERIODS.map(p => <option key={p}>{p}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* File Upload Area */}
+            <div style={{ border:"2px dashed #30363D", borderRadius:10, padding:30, textAlign:"center", marginBottom:16,
+              background: file ? "#0d2818" : "#0D1117",
+              borderColor: file ? "#238636" : "#30363D"
+            }}>
+              {file ? (
+                <div>
+                  <div style={{ fontSize:24, marginBottom:8 }}>✅</div>
+                  <div style={{ fontSize:13, fontWeight:600, color:"#3fb950" }}>{file.name}</div>
+                  <div style={{ fontSize:11, color:"#8B949E", marginTop:4 }}>
+                    {(file.size/1024).toFixed(1)} KB
+                  </div>
+                  <button onClick={()=>setFile(null)} style={{ ...S.btnGhost, marginTop:10, fontSize:11 }}>
+                    Remove File
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ fontSize:32, marginBottom:8 }}>📁</div>
+                  <div style={{ fontSize:13, color:"#C9D1D9", marginBottom:4 }}>
+                    Drop GSTR-2A file here or click to browse
+                  </div>
+                  <div style={{ fontSize:11, color:"#8B949E", marginBottom:12 }}>
+                    Supports: Excel (.xlsx, .xls) and JSON files from GST Portal
+                  </div>
+                  <label style={{ ...S.btn, cursor:"pointer", display:"inline-block" }}>
+                    Choose File
+                    <input type="file" accept=".xlsx,.xls,.json,.csv" onChange={e=>setFile(e.target.files[0])} style={{ display:"none" }}/>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display:"flex", gap:10 }}>
+              <button onClick={downloadTemplate} style={{ ...S.btnGhost, flex:1 }}>
+                📥 Download Sample Template
+              </button>
+              <button onClick={previewFile} disabled={!file||previewing} style={{ ...S.btn, flex:2, opacity:!file||previewing?0.5:1 }}>
+                {previewing ? "Reading file..." : "Preview Data →"}
+              </button>
+            </div>
+          </div>
+
+          {/* Supported formats */}
+          <div style={S.card}>
+            <div style={{ fontSize:13, fontWeight:600, color:"#E6EDF3", marginBottom:12 }}>
+              Supported File Formats
+            </div>
+            <table style={S.tbl}>
+              <thead><tr>{["Format","Source","Columns Needed"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+              <tbody>
+                {[
+                  ["Excel (.xlsx)","GST Portal Download","GSTIN, Supplier Name, Invoice No, Taxable Value, IGST, CGST, SGST"],
+                  ["JSON (.json)","GST Portal API","Standard GSTR-2A JSON format"],
+                  ["Custom Excel","Your Books","GSTIN of Supplier, Trade Name, Total ITC"],
+                ].map(([f,s,c],i)=>(
+                  <tr key={i}>
+                    <td style={{ ...S.td, fontWeight:600, color:"#e3b341" }}>{f}</td>
+                    <td style={S.td}>{s}</td>
+                    <td style={S.tdL}><span style={{ fontSize:11, color:"#8B949E" }}>{c}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 — Preview */}
+      {step === 2 && preview && (
+        <div>
+          {/* Summary Cards */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:16 }}>
+            {[
+              { label:"Total Invoices",  val: preview.total_invoices,            color:"#58a6ff" },
+              { label:"Total Suppliers", val: preview.total_suppliers,           color:"#e3b341" },
+              { label:"Total ITC Found", val: fmt(preview.total_itc),            color:"#3fb950" },
+              { label:"Avg ITC/Supplier",val: fmt(preview.total_itc/preview.total_suppliers), color:"#C9D1D9" },
+            ].map(k => (
+              <div key={k.label} style={S.kpi}>
+                <div style={S.kpiLabel}>{k.label}</div>
+                <div style={{ fontSize:k.label.includes("ITC")?16:24, fontWeight:700, color:k.color }}>{k.val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Client & Period Info */}
+          <div style={{ ...S.card, display:"flex", gap:20, alignItems:"center", marginBottom:12 }}>
+            <div>
+              <div style={{ fontSize:11, color:"#8B949E" }}>Client</div>
+              <div style={{ fontSize:13, fontWeight:600, color:"#E6EDF3" }}>
+                {clients.find(c=>c.id===clientId)?.name || "—"}
+              </div>
+            </div>
+            <div style={{ width:1, height:40, background:"#21262D" }}/>
+            <div>
+              <div style={{ fontSize:11, color:"#8B949E" }}>GSTIN</div>
+              <div style={{ fontSize:13, fontWeight:600, color:"#E6EDF3", fontFamily:"monospace" }}>
+                {clients.find(c=>c.id===clientId)?.gstin || "—"}
+              </div>
+            </div>
+            <div style={{ width:1, height:40, background:"#21262D" }}/>
+            <div>
+              <div style={{ fontSize:11, color:"#8B949E" }}>Period</div>
+              <div style={{ fontSize:13, fontWeight:600, color:"#e3b341" }}>{period}</div>
+            </div>
+            <div style={{ marginLeft:"auto" }}>
+              <button onClick={reset} style={S.btnGhost}>← Back</button>
+            </div>
+          </div>
+
+          {/* Supplier wise data */}
+          <div style={S.card}>
+            <div style={{ fontSize:13, fontWeight:600, color:"#E6EDF3", marginBottom:12 }}>
+              Supplier-wise ITC Summary (Preview)
+              <span style={{ fontSize:11, color:"#8B949E", fontWeight:400, marginLeft:8 }}>
+                — First {Math.min(preview.suppliers.length, 50)} suppliers shown
+              </span>
+            </div>
+            <table style={S.tbl}>
+              <thead>
+                <tr>
+                  {["Supplier Name","GSTIN","Invoices","Taxable Value","IGST","CGST","SGST","Total ITC"].map(h =>
+                    <th key={h} style={{ ...S.th, textAlign:["Invoices","Taxable Value","IGST","CGST","SGST","Total ITC"].includes(h)?"right":"left" }}>{h}</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {preview.suppliers.map((s,i) => (
+                  <tr key={i}>
+                    <td style={{ ...S.td, fontWeight:500, color:"#E6EDF3", maxWidth:160 }}>{s.name||"Unknown"}</td>
+                    <td style={S.td}><span style={S.mono}>{s.gstin}</span></td>
+                    <td style={{ ...S.td, textAlign:"right" }}>{s.invoices}</td>
+                    <td style={{ ...S.td, textAlign:"right" }}>{fmt(s.taxable)}</td>
+                    <td style={{ ...S.td, textAlign:"right", color:"#58a6ff" }}>{fmt(s.igst)}</td>
+                    <td style={{ ...S.td, textAlign:"right", color:"#e3b341" }}>{fmt(s.cgst)}</td>
+                    <td style={{ ...S.td, textAlign:"right", color:"#e3b341" }}>{fmt(s.sgst)}</td>
+                    <td style={{ ...S.td, textAlign:"right", fontWeight:700, color:"#3fb950" }}>{fmt(s.itc)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background:"#21262D" }}>
+                  <td colSpan={2} style={{ ...S.td, fontWeight:700, color:"#E6EDF3" }}>TOTAL</td>
+                  <td style={{ ...S.td, textAlign:"right", fontWeight:700 }}>{preview.total_invoices}</td>
+                  <td style={{ ...S.td, textAlign:"right", fontWeight:700 }}>{fmt(preview.suppliers.reduce((a,s)=>a+s.taxable,0))}</td>
+                  <td style={{ ...S.td, textAlign:"right", fontWeight:700, color:"#58a6ff" }}>{fmt(preview.suppliers.reduce((a,s)=>a+s.igst,0))}</td>
+                  <td style={{ ...S.td, textAlign:"right", fontWeight:700, color:"#e3b341" }}>{fmt(preview.suppliers.reduce((a,s)=>a+s.cgst,0))}</td>
+                  <td style={{ ...S.td, textAlign:"right", fontWeight:700, color:"#e3b341" }}>{fmt(preview.suppliers.reduce((a,s)=>a+s.sgst,0))}</td>
+                  <td style={{ ...S.td, textAlign:"right", fontWeight:700, color:"#3fb950", fontSize:14 }}>{fmt(preview.total_itc)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div style={{ display:"flex", gap:10 }}>
+            <button onClick={reset} style={{ ...S.btnGhost, flex:1 }}>← Back</button>
+            <button onClick={importData} disabled={importing} style={{ ...S.btnG, flex:2, opacity:importing?0.5:1 }}>
+              {importing ? "Importing to Database..." : `✅ Import ${preview.total_suppliers} Suppliers to Reconciliation`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3 — Done */}
+      {step === 3 && imported && (
+        <div>
+          <div style={{ textAlign:"center", padding:30 }}>
+            <div style={{ fontSize:48, marginBottom:12 }}>🎉</div>
+            <div style={{ fontSize:20, fontWeight:700, color:"#3fb950", marginBottom:8 }}>
+              GSTR-2A Imported Successfully!
+            </div>
+            <div style={{ fontSize:13, color:"#8B949E" }}>{imported.message}</div>
+          </div>
+
+          {/* Results */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:16 }}>
+            {[
+              { label:"Total Invoices",   val: imported.summary?.total_invoices,  color:"#58a6ff" },
+              { label:"Suppliers Saved",  val: imported.summary?.saved,           color:"#3fb950" },
+              { label:"Total ITC",        val: fmt(imported.summary?.total_itc),  color:"#e3b341" },
+            ].map(k=>(
+              <div key={k.label} style={{ ...S.kpi, textAlign:"center" }}>
+                <div style={S.kpiLabel}>{k.label}</div>
+                <div style={{ fontSize:20, fontWeight:700, color:k.color }}>{k.val}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ ...S.card, background:"#0d2818", border:"1px solid #238636" }}>
+            <div style={{ fontSize:13, color:"#3fb950", marginBottom:8, fontWeight:600 }}>✅ What happened:</div>
+            <div style={{ fontSize:12, color:"#C9D1D9", lineHeight:2 }}>
+              • {imported.summary?.total_invoices} invoices from GSTR-2A were read<br/>
+              • {imported.summary?.saved} supplier-wise ITC entries saved to Reconciliation<br/>
+              • Go to <strong>Reconciliation</strong> module to see GSTR-2A vs Books comparison<br/>
+              • Enter your books ITC amount for each supplier to see mismatches
+            </div>
+          </div>
+
+          <div style={{ display:"flex", gap:10, marginTop:16 }}>
+            <button onClick={reset} style={{ ...S.btn, flex:1 }}>Import Another File</button>
+            <button onClick={()=>window.location.reload()} style={{ ...S.btnG, flex:1 }}>
+              Go to Reconciliation →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 // ── AI ASSISTANT ───────────────────────────────────────────────────────────
 function AIAssistant({token}) {
   const [msgs,setMsgs]=useState([{role:"assistant",content:"Namaste! I am your AI GST Assistant.\n\nAsk me anything about GST — notices, ITC, reconciliation, returns, DRC-01 replies, or any compliance question."}]);
