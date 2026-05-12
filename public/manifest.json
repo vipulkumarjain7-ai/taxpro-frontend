@@ -1,6 +1,6 @@
 {
-  "short_name": "TaxPro GST",
-  "name": "TaxPro GST - CA Practice Suite",
+  "short_name": "TaxPro",
+  "name": "TaxPro GST - by GST Bandhu",
   "description": "GST Compliance Platform for Chartered Accountants",
   "icons": [
     {
@@ -9,13 +9,13 @@
       "type": "image/x-icon"
     },
     {
-      "src": "logo192.png",
+      "src": "icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "logo512.png",
+      "src": "icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
@@ -23,8 +23,8 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#0D1117",
-  "background_color": "#0D1117",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
   "orientation": "portrait",
   "categories": ["finance", "business", "productivity"]
 }
