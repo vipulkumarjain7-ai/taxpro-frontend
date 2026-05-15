@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from "react";
 import API_BASE from "./config";
 
+/*
+  TaxPro ERP Frontend
+  - Connects to authenticated backend routes
+  - Sends JWT token from localStorage with every request
+  - Displays data from all backend modules automatically
+*/
+
 const MODULES = [
   "Dashboard",
   "Accounting",
@@ -107,6 +114,7 @@ const styles = {
     color: "#64748b",
     marginTop: 8,
     marginBottom: 20,
+    wordBreak: "break-all",
   },
   toolbar: {
     display: "flex",
@@ -124,9 +132,36 @@ const styles = {
     cursor: "pointer",
     fontWeight: "bold",
   },
+  loginBtn: {
+    padding: "10px 16px",
+    borderRadius: 8,
+    border: "none",
+    background: "#16a34a",
+    color: "white",
+    cursor: "pointer",
+    fontWeight: "bold",
+    marginRight: 10,
+  },
+  logoutBtn: {
+    padding: "10px 16px",
+    borderRadius: 8,
+    border: "none",
+    background: "#dc2626",
+    color: "white",
+    cursor: "pointer",
+    fontWeight: "bold",
+    marginRight: 10,
+  },
   error: {
     background: "#fef2f2",
     color: "#b91c1c",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  success: {
+    background: "#f0fdf4",
+    color: "#166534",
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
@@ -177,6 +212,10 @@ function DataTable({ data }) {
     ? data
     : Array.isArray(data?.data)
     ? data.data
+    : Array.isArray(data?.rows)
+    ? data.rows
+    : data?.summary
+    ? [data.summary]
     : data
     ? [data]
     : [];
@@ -220,6 +259,24 @@ export default function App() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const hasToken = !!localStorage.getItem("token");
+
+  const setDemoToken = () => {
+    const token = prompt("Paste your JWT token:");
+    if (token && token.trim()) {
+      localStorage.setItem("token", token.trim());
+      setMessage("Token saved successfully.");
+      loadData(activeModule);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    setMessage("Token removed.");
+    setData([]);
+  };
 
   const loadData = async (moduleName = activeModule) => {
     const endpoint = API_MAP[moduleName];
@@ -228,18 +285,31 @@ export default function App() {
     try {
       setLoading(true);
       setError("");
+      setMessage("");
 
-      const response = await fetch(`${API_BASE}${endpoint}`);
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
+      const json = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        throw new Error(
+          json.message || `HTTP ${response.status}: ${response.statusText}`
+        );
       }
 
-      const json = await response.json();
       setData(json);
     } catch (err) {
       console.error(err);
       setData([]);
-      setError(`Unable to load ${moduleName}. Check backend route: ${endpoint}`);
+      setError(err.message || `Unable to load ${moduleName}`);
     } finally {
       setLoading(false);
     }
@@ -248,7 +318,7 @@ export default function App() {
   useEffect(() => {
     loadData(activeModule);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeModule]); 
+  }, [activeModule]);
 
   return (
     <div style={styles.app}>
@@ -278,14 +348,27 @@ export default function App() {
               </div>
             </div>
 
-            <button
-              style={styles.refreshBtn}
-              onClick={() => loadData(activeModule)}
-            >
-              Refresh
-            </button>
+            <div>
+              {!hasToken ? (
+                <button style={styles.loginBtn} onClick={setDemoToken}>
+                  Set JWT Token
+                </button>
+              ) : (
+                <button style={styles.logoutBtn} onClick={logout}>
+                  Remove Token
+                </button>
+              )}
+
+              <button
+                style={styles.refreshBtn}
+                onClick={() => loadData(activeModule)}
+              >
+                Refresh
+              </button>
+            </div>
           </div>
 
+          {message && <div style={styles.success}>{message}</div>}
           {error && <div style={styles.error}>{error}</div>}
 
           {loading ? (
