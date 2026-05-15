@@ -1,5 +1,5 @@
+import API_BASE from "./config";
 import { useState, useRef, useEffect, useCallback } from "react";
-
 const API = process.env.REACT_APP_API || "https://taxpro-backend-xi90.onrender.com/api";
 
 const api = async (path, method="GET", body=null, token=null) => {
