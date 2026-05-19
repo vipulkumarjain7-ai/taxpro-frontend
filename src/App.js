@@ -1113,6 +1113,173 @@ function Reports({ token }) {
     </div>
   );
 }
+// ── ACCOUNTING MODULE ───────────────────────────────────────────────────────
+function Accounting({ token, toast }) {
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+
+  const load = useCallback(() => {
+    setLoading(true);
+
+    api(
+      `/accounting/companies${q ? `?search=${encodeURIComponent(q)}` : ""}`,
+      "GET",
+      null,
+      token
+    )
+      .then((d) => {
+        setEntries(
+          d.entries ||
+          d.data ||
+          d.records ||
+          d.accounting ||
+          []
+        );
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [token, q]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          marginBottom: 14,
+          alignItems: "center",
+        }}
+      >
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && load()}
+          placeholder="Search accounting entries..."
+          style={{ ...S.input, width: 280 }}
+        />
+
+        <button onClick={load} style={S.btnGhost}>
+          Search
+        </button>
+
+        <button
+          onClick={load}
+          style={{ ...S.btn, marginLeft: "auto" }}
+        >
+          Refresh
+        </button>
+      </div>
+
+      {/* Data */}
+      {loading ? (
+        <Spinner />
+      ) : (
+        <div style={S.card}>
+          {entries.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: 40,
+                color: "#8B949E",
+              }}
+            >
+              No accounting records found.
+            </div>
+          ) : (
+            <table style={S.tbl}>
+              <thead>
+                <tr>
+                  {[
+                    "Date",
+                    "Voucher No",
+                    "Account",
+                    "Description",
+                    "Debit",
+                    "Credit",
+                    "Balance",
+                  ].map((h) => (
+                    <th key={h} style={S.th}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {entries.map((e, i) => (
+                  <tr key={e.id || i}>
+                    <td style={S.td}>
+                      {e.date
+                        ? new Date(e.date).toLocaleDateString()
+                        : "-"}
+                    </td>
+
+                    <td style={S.td}>
+                      <span style={S.mono}>
+                        {e.voucher_no || e.voucherNo || "-"}
+                      </span>
+                    </td>
+
+                    <td
+                      style={{
+                        ...S.td,
+                        fontWeight: 600,
+                        color: "#E6EDF3",
+                      }}
+                    >
+                      {e.account_name ||
+                        e.account ||
+                        e.ledger ||
+                        "-"}
+                    </td>
+
+                    <td style={S.td}>
+                      {e.description || e.narration || "-"}
+                    </td>
+
+                    <td style={S.td}>
+                      ₹
+                      {Number(
+                        e.debit || 0
+                      ).toLocaleString("en-IN")}
+                    </td>
+
+                    <td style={S.td}>
+                      ₹
+                      {Number(
+                        e.credit || 0
+                      ).toLocaleString("en-IN")}
+                    </td>
+
+                    <td
+                      style={{
+                        ...S.td,
+                        fontWeight: 700,
+                        color: "#3FB950",
+                      }}
+                    >
+                      ₹
+                      {Number(
+                        e.balance ||
+                          (e.debit || 0) - (e.credit || 0)
+                      ).toLocaleString("en-IN")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── GST CLIENTS ────────────────────────────────────────────────────────────
 function GSTClients({ token, toast }) {
@@ -1461,6 +1628,7 @@ function AIAssistant({ token }) {
 // ── NAVIGATION ─────────────────────────────────────────────────────────────
 const NAV = [
   { key:"dashboard",  icon:"🏠", label:"Dashboard",          group:"MAIN" },
+  { key:"accounting", icon:"🧾", label:"Accounts",           group:"ACCOUNTING" },
   { key:"sales",      icon:"📄", label:"Sales Invoices",     group:"ACCOUNTING" },
   { key:"purchases",  icon:"🧾", label:"Purchase Bills",     group:"ACCOUNTING" },
   { key:"parties",    icon:"👥", label:"Parties",            group:"ACCOUNTING" },
@@ -1535,6 +1703,7 @@ export default function App() {
         </div>
         <div style={S.content}>
           {view==="dashboard"  && <Dashboard    token={token} />}
+          {view==="accounting" && <Accounting     token={token} toast={showToast} />}
           {view==="sales"      && <InvoiceList  token={token} toast={showToast} type="SALES" />}
           {view==="purchases"  && <InvoiceList  token={token} toast={showToast} type="PURCHASE" />}
           {view==="parties"    && <Parties      token={token} toast={showToast} />}
