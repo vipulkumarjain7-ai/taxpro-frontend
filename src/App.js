@@ -13,24 +13,24 @@ const api = async (path, method="GET", body=null, token=null) => {
 const fmtM = n => `Rs.${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 const todayStr = () => new Date().toISOString().split("T")[0];
 const S = {
-  app:{display:"flex",minHeight:"100vh",fontFamily:"'Inter',sans-serif",fontSize:13,background:"#f0f5fc",color:"#C9D1D9"},
-  sidebar:{width:220,minWidth:220,background:"#edf2f8",borderRight:"1px solid #e5eaf0",display:"flex",flexDirection:"column",overflowY:"auto"},
+  app:{display:"flex",minHeight:"100vh",fontFamily:"'Inter',sans-serif",fontSize:13,background:"#0D1117",color:"#C9D1D9"},
+  sidebar:{width:220,minWidth:220,background:"#161B22",borderRight:"1px solid #21262D",display:"flex",flexDirection:"column",overflowY:"auto"},
   main:{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"},
-  topbar:{padding:"12px 20px",background:"#e9edf1",borderBottom:"1px solid #ebeef3",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0},
-  content:{flex:1,overflowY:"auto",padding:18,background:"#eef3fa"},
-  card:{background:"#ecf0f7",border:"1px solid #eaeff5",borderRadius:10,padding:16,marginBottom:12},
-  kpi:{background:"#e9edf3",border:"1px solid #f4f9ff",borderRadius:10,padding:"14px 16px"},
-  kpiLabel:{fontSize:10,color:"#070a0e",textTransform:"uppercase",letterSpacing:0.6,marginBottom:6},
+  topbar:{padding:"12px 20px",background:"#161B22",borderBottom:"1px solid #21262D",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0},
+  content:{flex:1,overflowY:"auto",padding:18,background:"#0D1117"},
+  card:{background:"#161B22",border:"1px solid #21262D",borderRadius:10,padding:16,marginBottom:12},
+  kpi:{background:"#161B22",border:"1px solid #21262D",borderRadius:10,padding:"14px 16px"},
+  kpiLabel:{fontSize:10,color:"#8B949E",textTransform:"uppercase",letterSpacing:0.6,marginBottom:6},
   kpiVal:{fontSize:22,fontWeight:700,lineHeight:1,color:"#E6EDF3"},
   tbl:{width:"100%",borderCollapse:"collapse",fontSize:12},
-  th:{textAlign:"left",padding:"8px 10px",color:"#8B949E",borderBottom:"1px solid #f0f4fa",fontWeight:500,fontSize:11},
-  td:{padding:"8px 10px",borderBottom:"1px solid #e5edf8",color:"#C9D1D9",verticalAlign:"middle"},
+  th:{textAlign:"left",padding:"8px 10px",color:"#8B949E",borderBottom:"1px solid #21262D",fontWeight:500,fontSize:11},
+  td:{padding:"8px 10px",borderBottom:"1px solid #21262D",color:"#C9D1D9",verticalAlign:"middle"},
   tdL:{padding:"8px 10px",color:"#C9D1D9",verticalAlign:"middle"},
   mono:{fontFamily:"monospace",fontSize:11,color:"#8B949E"},
   twoCol:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12},
   threeCol:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12},
-  input:{padding:"9px 12px",borderRadius:8,border:"1px solid #eef0f3",background:"#f5f7fa",color:"#06090c",fontSize:13,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"},
-  select:{padding:"7px 10px",borderRadius:8,border:"1px solid #eff3f8",background:"#f0f4fa",color:"#040608",fontSize:12,fontFamily:"inherit",width:"100%"},
+  input:{padding:"9px 12px",borderRadius:8,border:"1px solid #30363D",background:"#0D1117",color:"#C9D1D9",fontSize:13,fontFamily:"inherit",outline:"none",width:"100%",boxSizing:"border-box"},
+  select:{padding:"7px 10px",borderRadius:8,border:"1px solid #30363D",background:"#161B22",color:"#C9D1D9",fontSize:12,fontFamily:"inherit",width:"100%"},
   btn:{padding:"9px 18px",borderRadius:8,border:"none",background:"#1F6FEB",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"},
   btnG:{padding:"9px 18px",borderRadius:8,border:"none",background:"#238636",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"},
   btnGhost:{padding:"7px 14px",borderRadius:8,border:"1px solid #30363D",background:"transparent",color:"#8B949E",cursor:"pointer",fontSize:12,fontFamily:"inherit"},
@@ -66,6 +66,7 @@ function Dashboard({token}){
   if(loading)return<Spinner/>;
   return(<div><div style={{marginBottom:10}}>{badge("Accounting + GST Live Dashboard","blue")}</div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>{[{label:"Monthly Sales",val:fmtM(inv?.monthly_sales||0),color:"#3fb950"},{label:"Monthly Purchases",val:fmtM(inv?.monthly_purchases||0),color:"#58a6ff"},{label:"Outstanding",val:fmtM(inv?.total_outstanding||0),color:"#e3b341"},{label:"Overdue",val:fmtM(inv?.overdue_amount||0),color:"#f85149"}].map(k=>(<div key={k.label} style={S.kpi}><div style={S.kpiLabel}>{k.label}</div><div style={{...S.kpiVal,fontSize:15,color:k.color}}>{k.val}</div></div>))}</div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>{[{label:"GST Clients",val:gst?.clients?.total||0,color:"#E6EDF3"},{label:"Compliant",val:gst?.clients?.compliant||0,color:"#3fb950"},{label:"Open Notices",val:gst?.notices?.open||0,color:"#f85149"},{label:"Due in 30 Days",val:gst?.notices?.due_in_30_days||0,color:"#e3b341"}].map(k=>(<div key={k.label} style={S.kpi}><div style={S.kpiLabel}>{k.label}</div><div style={{...S.kpiVal,color:k.color}}>{k.val}</div></div>))}</div><div style={S.twoCol}><div style={S.card}><div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:12}}>Upcoming Notice Due Dates</div>{!gst?.upcoming_notices?.length?<div style={{color:"#3fb950",fontSize:12}}>No notices due in 30 days ✓</div>:gst.upcoming_notices.map(n=>(<div key={n.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #21262D"}}><div><div style={{fontWeight:500,color:"#E6EDF3",fontSize:12}}>{n.client_name}</div><div style={{fontSize:11,color:"#8B949E"}}>{n.type}</div></div>{badge(n.due_date,"amber")}</div>))}</div>{gst?.returns_summary&&<div style={S.card}><div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:12}}>GST Filing — {gst.returns_summary.period}</div><table style={S.tbl}><thead><tr>{["Return","Filed","Pending","Not Filed"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{[["GSTR-1","gstr1"],["GSTR-3B","gstr3b"],["GSTR-9","gstr9"]].map(([lbl,key])=>(<tr key={key}><td style={S.td}>{lbl}</td><td style={{...S.td,color:"#3fb950",fontWeight:600}}>{gst.returns_summary[key].filed}</td><td style={{...S.td,color:"#e3b341",fontWeight:600}}>{gst.returns_summary[key].pending}</td><td style={{...S.tdL,color:"#f85149",fontWeight:600}}>{gst.returns_summary[key].not_filed}</td></tr>))}</tbody></table></div>}</div></div>);
 }
+
 // ── PARTIES ───────────────────────────────────────────────────────────────
 function Parties({token,toast}){
   const[parties,setParties]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showModal,setShowModal]=useState(false);const[editing,setEditing]=useState(null);const[saving,setSaving]=useState(false);const[ledger,setLedger]=useState(null);
@@ -132,6 +133,7 @@ function InvoiceList({token,toast,type}){
     {payModal&&(<Modal title={`Record Payment — ${payModal.invoice_no}`} onClose={()=>setPayModal(null)}><div style={{...S.kpi,textAlign:"center",marginBottom:16}}><div style={S.kpiLabel}>Balance Due</div><div style={{fontSize:24,fontWeight:800,color:"#f85149"}}>{fmtM(payModal.balance_due)}</div></div>{[{l:"Amount (Rs.) *",k:"amount",t:"number"},{l:"Payment Date *",k:"payment_date",t:"date"},{l:"Reference No",k:"reference_no",t:"text"}].map(f=>(<div key={f.k} style={S.fg}><label style={S.label}>{f.l}</label><input style={S.input} type={f.t} value={payForm[f.k]} onChange={e=>setPayForm(p=>({...p,[f.k]:e.target.value}))}/></div>))}<div style={S.fg}><label style={S.label}>Method</label><select style={S.select} value={payForm.method} onChange={e=>setPayForm(p=>({...p,method:e.target.value}))}>{["CASH","CHEQUE","NEFT","RTGS","IMPS","UPI","CARD"].map(m=><option key={m}>{m}</option>)}</select></div><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setPayModal(null)} style={S.btnGhost}>Cancel</button><button onClick={recordPayment} style={S.btnG}>Record Payment</button></div></Modal>)}
   </div>);
 }
+
 // ── PRODUCTS ───────────────────────────────────────────────────────────────
 function Products({token,toast}){
   const[products,setProducts]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showModal,setShowModal]=useState(false);const[editing,setEditing]=useState(null);const[saving,setSaving]=useState(false);const[stockModal,setStockModal]=useState(null);const[stockForm,setStockForm]=useState({type:"IN",qty:"",rate:"",notes:""});
@@ -196,6 +198,7 @@ function Returns({token,toast}){
     {showModal&&(<Modal title="Add Return Record" onClose={()=>setShowModal(false)}><div style={S.fg}><label style={S.label}>Client *</label><select style={S.select} value={form.client_id} onChange={e=>setForm(p=>({...p,client_id:e.target.value}))}><option value="">Select</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div><div style={S.fg}><label style={S.label}>Period</label><select style={S.select} value={form.period} onChange={e=>setForm(p=>({...p,period:e.target.value}))}>{PERIODS.map(p=><option key={p}>{p}</option>)}</select></div>{[["gstr1_status","GSTR-1"],["gstr3b_status","GSTR-3B"],["gstr9_status","GSTR-9"]].map(([key,lbl])=>(<div key={key} style={S.fg}><label style={S.label}>{lbl}</label><select style={S.select} value={form[key]} onChange={e=>setForm(p=>({...p,[key]:e.target.value}))}>{["not-filed","pending","filed"].map(s=><option key={s}>{s}</option>)}</select></div>))}<div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setShowModal(false)} style={S.btnGhost}>Cancel</button><button onClick={save} disabled={saving} style={{...S.btn,opacity:saving?0.6:1}}>{saving?"Saving...":"Save"}</button></div></Modal>)}
   </div>);
 }
+
 // ── REPORTS ────────────────────────────────────────────────────────────────
 function Reports({token}){
   const[rtype,setRtype]=useState("gst-summary");const[from,setFrom]=useState(new Date(new Date().getFullYear(),3,1).toISOString().split("T")[0]);const[to,setTo]=useState(todayStr());const[data,setData]=useState(null);const[loading,setLoading]=useState(false);
@@ -256,6 +259,7 @@ function AIAssistant({token}){
   const chips=["How to respond to DRC-01?","GSTR-2B vs 2A difference","ITC reversal Rule 42","Section 16(4) time limit","Journal entry for GST payment","What is trial balance?"];
   return(<div style={S.aiWrap}><div style={S.aiMsgs}>{msgs.map((m,i)=>(<div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>{m.role==="assistant"&&<div style={{width:28,height:28,borderRadius:"50%",background:"#1F6FEB",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,marginRight:8,flexShrink:0,marginTop:2,color:"#fff",fontWeight:700}}>AI</div>}<div style={m.role==="user"?S.bubU:S.bubA}>{m.content}</div></div>))}{loading&&<div style={{display:"flex",gap:8}}><div style={{width:28,height:28,borderRadius:"50%",background:"#1F6FEB",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#fff",fontWeight:700}}>AI</div><div style={{...S.bubA,color:"#8B949E"}}>Thinking...</div></div>}<div ref={endRef}/></div><div style={{display:"flex",gap:6,flexWrap:"wrap",padding:"8px 14px"}}>{chips.map(c=><button key={c} onClick={()=>send(c)} disabled={loading} style={{padding:"4px 10px",borderRadius:20,border:"1px solid #30363D",background:"transparent",color:"#8B949E",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>{c}</button>)}</div><div style={{display:"flex",gap:8,padding:"12px 14px",borderTop:"1px solid #21262D"}}><input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Ask about GST or accounting..." disabled={loading} style={{...S.input,flex:1}}/><button onClick={()=>send()} disabled={loading||!input.trim()} style={{...S.btn,opacity:loading||!input.trim()?0.5:1}}>Send</button></div></div>);
 }
+
 // ── BANK STATEMENT ──────────────────────────────────────────────────────────
 function BankStatement({token,toast}){
   const[step,setStep]=useState(1);const[file,setFile]=useState(null);const[bankName,setBankName]=useState("");const[preview,setPreview]=useState(null);const[uploading,setUploading]=useState(false);const[importing,setImporting]=useState(false);const[transactions,setTransactions]=useState([]);const[viewMode,setViewMode]=useState("upload");const[filterType,setFilterType]=useState("all");
@@ -264,7 +268,7 @@ function BankStatement({token,toast}){
   const loadTxns=useCallback(()=>{api(`/bank/transactions${filterType!=="all"?`?type=${filterType}`:""}`, "GET",null,token).then(d=>setTransactions(d.transactions||[])).catch(()=>{});},[token,filterType]);
   useEffect(()=>{if(viewMode==="history")loadTxns();},[viewMode,loadTxns]);
   const uploadPDF=async()=>{if(!file)return toast("Select PDF","error");setUploading(true);try{const fd=new FormData();fd.append("file",file);if(bankName)fd.append("bank_name",bankName);const res=await fetch(`${API}/bank/upload`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});const data=await res.json();if(data.success){setPreview(data.preview);setStep(2);}else toast(data.message,"error");}catch(e){toast("Upload failed","error");}setUploading(false);};
-  const importDB=async()=>{if(!preview)resturn;setImporting(true);try{const data=await api("/bank/import","POST",{bank_name:bankName||preview.bank_name,account_no:"",transactions:preview.transactions},token);if(data.success){toast(data.message,"success");setStep(3);}else toast(data.message,"error");}catch(e){toast(e.message,"error");}setImporting(false);};
+  const importDB=async()=>{if(!preview)return;setImporting(true);try{const data=await api("/bank/import","POST",{bank_name:bankName||preview.bank_name,account_no:"",transactions:preview.transactions},token);if(data.success){toast(data.message,"success");setStep(3);}else toast(data.message,"error");}catch(e){toast(e.message,"error");}setImporting(false);};
   const updateCat=async(id,category,type)=>{try{await api(`/bank/transactions/${id}`,"PATCH",{category,type},token);loadTxns();}catch(e){}};
   const reset=()=>{setFile(null);setPreview(null);setStep(1);};
   return(<div>
@@ -277,7 +281,9 @@ function BankStatement({token,toast}){
     </div>)}
     {viewMode==="history"&&(<div><div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:12,color:"#8B949E"}}>Filter:</span>{["all",...TYPES].map(t=>(<button key={t} onClick={()=>setFilterType(t)} style={{padding:"4px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,fontFamily:"inherit",borderColor:filterType===t?"#58a6ff":"#30363D",background:filterType===t?"#0c1d2e":"transparent",color:filterType===t?"#58a6ff":"#8B949E"}}>{t==="all"?"All":t}</button>))}<button onClick={loadTxns} style={{...S.btnGhost,marginLeft:"auto",fontSize:11}}>Refresh</button></div><div style={S.card}>{transactions.length===0?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No transactions. Import first.</div>:(<table style={S.tbl}><thead><tr>{["Date","Description","Debit","Credit","Category","Type"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{transactions.map(t=>(<tr key={t.id}><td style={S.td}>{t.txn_date}</td><td style={{...S.td,maxWidth:220}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={t.description}>{t.description}</div></td><td style={{...S.td,color:"#f85149",fontWeight:t.debit>0?600:400}}>{t.debit>0?fmtM(t.debit):"—"}</td><td style={{...S.td,color:"#3fb950",fontWeight:t.credit>0?600:400}}>{t.credit>0?fmtM(t.credit):"—"}</td><td style={S.td}><select value={t.category||"Uncategorized"} onChange={e=>updateCat(t.id,e.target.value,t.type)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{CATS.map(c=><option key={c}>{c}</option>)}</select></td><td style={S.tdL}><select value={t.type||"UNKNOWN"} onChange={e=>updateCat(t.id,t.category,e.target.value)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{TYPES.map(tp=><option key={tp}>{tp}</option>)}</select></td></tr>))}</tbody></table>)}</div></div>)}
   </div>);
-}// ── ACCOUNTING: COMPANY MANAGER ─────────────────────────────────────────────
+}
+
+// ── ACCOUNTING: COMPANY MANAGER ─────────────────────────────────────────────
 function CompanyManager({token,toast,onSelect,selectedCompany}){
   const[companies,setCompanies]=useState([]);const[loading,setLoading]=useState(true);const[showModal,setShowModal]=useState(false);const[editing,setEditing]=useState(null);const[saving,setSaving]=useState(false);
   const[form,setForm]=useState({name:"",legal_name:"",gstin:"",pan:"",address:"",city:"",state:"",pincode:"",phone:"",email:"",fy_start:"2024-04-01",fy_end:"2025-03-31",financial_year:"Apr-Mar"});
@@ -429,6 +435,7 @@ function LedgerManager({token,toast,companyId}){
     </Modal>)}
   </div>);
 }
+
 // ── VOUCHER ENTRY ────────────────────────────────────────────────────────────
 function VoucherEntry({token,toast,companyId}){
   const VTYPES=[{key:"CONTRA",label:"F4: Contra",desc:"Cash/Bank transfers",color:"purple"},{key:"PAYMENT",label:"F5: Payment",desc:"Expenses, vendor payments",color:"red"},{key:"RECEIPT",label:"F6: Receipt",desc:"Customer payments, inflows",color:"green"},{key:"JOURNAL",label:"F7: Journal",desc:"Adjustments, depreciation",color:"blue"},{key:"SALES",label:"F8: Sales",desc:"Sales invoices",color:"teal"},{key:"PURCHASE",label:"F9: Purchase",desc:"Purchase bills",color:"amber"}];
@@ -618,6 +625,7 @@ function AccountingReports({token,toast,companyId}){
     </div>
   </div>);
 }
+
 // ── ACCOUNTING SHELL (holds company context) ──────────────────────────────
 function AccountingShell({token,toast,activeView}){
   const[company,setCompany]=useState(()=>{try{return JSON.parse(localStorage.getItem("taxpro_company"));}catch{return null;}});
