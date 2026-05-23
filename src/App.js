@@ -435,140 +435,334 @@ function LedgerManager({token,toast,companyId}){
     </Modal>)}
   </div>);
 }
-
-// ── VOUCHER ENTRY ────────────────────────────────────────────────────────────
+// VOUCHER ENTRY//
 function VoucherEntry({token,toast,companyId}){
-  const VTYPES=[{key:"CONTRA",label:"F4: Contra",desc:"Cash/Bank transfers",color:"purple"},{key:"PAYMENT",label:"F5: Payment",desc:"Expenses, vendor payments",color:"red"},{key:"RECEIPT",label:"F6: Receipt",desc:"Customer payments, inflows",color:"green"},{key:"JOURNAL",label:"F7: Journal",desc:"Adjustments, depreciation",color:"blue"},{key:"SALES",label:"F8: Sales",desc:"Sales invoices",color:"teal"},{key:"PURCHASE",label:"F9: Purchase",desc:"Purchase bills",color:"amber"}];
-  const[vtype,setVtype]=useState("RECEIPT");const[ledgers,setLedgers]=useState([]);const[vouchers,setVouchers]=useState([]);const[loading,setLoading]=useState(true);const[saving,setSaving]=useState(false);const[viewMode,setViewMode]=useState("entry");const[viewing,setViewing]=useState(null);
-  const[form,setForm]=useState({date:todayStr(),ref_no:"",narration:"",party_ledger_id:"",party_name:""});
-  const[items,setItems]=useState([{ledger_id:"",dr_amount:"",cr_amount:"",narration:""},{ledger_id:"",dr_amount:"",cr_amount:"",narration:""}]);
+  const VTYPES=[
+    {key:"CONTRA",  label:"F4: Contra",   desc:"Cash/Bank transfers",     color:"purple"},
+    {key:"PAYMENT", label:"F5: Payment",  desc:"Expenses, vendor payments",color:"red"},
+    {key:"RECEIPT", label:"F6: Receipt",  desc:"Customer payments",        color:"green"},
+    {key:"JOURNAL", label:"F7: Journal",  desc:"Adjustments, depreciation",color:"blue"},
+    {key:"SALES",   label:"F8: Sales",    desc:"Sales entries",            color:"teal"},
+    {key:"PURCHASE",label:"F9: Purchase", desc:"Purchase entries",         color:"amber"},
+  ];
+  const[vtype,setVtype]       =useState("RECEIPT");
+  const[ledgers,setLedgers]   =useState([]);
+  const[vouchers,setVouchers] =useState([]);
+  const[loading,setLoading]   =useState(true);
+  const[saving,setSaving]     =useState(false);
+  const[viewMode,setViewMode] =useState("entry");
+  const[viewing,setViewing]   =useState(null);
   const[filterType,setFilterType]=useState("all");
-
-  useEffect(()=>{api(`/accounting/companies/${companyId}/ledgers`,"GET",null,token).then(d=>setLedgers(d.ledgers||[])).catch(()=>{});},[companyId,token]);
-  const loadVouchers=useCallback(()=>{setLoading(true);api(`/accounting/companies/${companyId}/vouchers${filterType!=="all"?`?type=${filterType}`:""}`, "GET",null,token).then(d=>{setVouchers(d.vouchers||[]);setLoading(false);}).catch(()=>setLoading(false));},[companyId,token,filterType]);
+  const[form,setForm]=useState({date:todayStr(),ref_no:"",narration:"",party_name:""});
+  // Single entry rows: each row has ledger + amount + type (Dr/Cr)
+  const[rows,setRows]=useState([
+    {ledger_id:"",amount:"",entry_type:"Dr",narration:""},
+    {ledger_id:"",amount:"",entry_type:"Cr",narration:""},
+  ]);
+ 
+  useEffect(()=>{
+    api(`/accounting/companies/${companyId}/ledgers`,"GET",null,token)
+      .then(d=>setLedgers(d.ledgers||[])).catch(()=>{});
+  },[companyId,token]);
+ 
+  const loadVouchers=useCallback(()=>{
+    setLoading(true);
+    api(`/accounting/companies/${companyId}/vouchers${filterType!=="all"?`?type=${filterType}`:""}`, "GET",null,token)
+      .then(d=>{setVouchers(d.vouchers||[]);setLoading(false);}).catch(()=>setLoading(false));
+  },[companyId,token,filterType]);
+ 
   useEffect(()=>{if(viewMode==="list")loadVouchers();},[viewMode,loadVouchers]);
-
-  const setItem=(i,k,v)=>{const n=[...items];n[i]={...n[i],[k]:v};setItems(n);};
-  const addRow=()=>setItems(p=>[...p,{ledger_id:"",dr_amount:"",cr_amount:"",narration:""}]);
-  const removeRow=i=>{if(items.length<=2)return;setItems(p=>p.filter((_,idx)=>idx!==i));};
-  const totalDr=items.reduce((a,i)=>a+(parseFloat(i.dr_amount)||0),0);
-  const totalCr=items.reduce((a,i)=>a+(parseFloat(i.cr_amount)||0),0);
-  const balanced=Math.abs(totalDr-totalCr)<0.01;
+ 
+  const setRow=(i,k,v)=>{const n=[...rows];n[i]={...n[i],[k]:v};setRows(n);};
+  const addRow=()=>setRows(p=>[...p,{ledger_id:"",amount:"",entry_type:"Cr",narration:""}]);
+  const removeRow=i=>{if(rows.length<=2)return;setRows(p=>p.filter((_,idx)=>idx!==i));};
+ 
+  // Auto-set Dr/Cr based on voucher type and row position
+  const handleVtypeChange=vt=>{
+    setVtype(vt);
+    setRows(prev=>prev.map((row,i)=>{
+      if(vt==="RECEIPT")  return{...row,entry_type:i===0?"Dr":"Cr"};
+      if(vt==="PAYMENT")  return{...row,entry_type:i===0?"Cr":"Dr"};
+      if(vt==="CONTRA")   return{...row,entry_type:i===0?"Dr":"Cr"};
+      if(vt==="SALES")    return{...row,entry_type:i===0?"Dr":"Cr"};
+      if(vt==="PURCHASE") return{...row,entry_type:i===0?"Dr":"Cr"};
+      return row;
+    }));
+  };
+ 
+  // Convert single-entry rows to double-entry items
+  const toDoubleEntry=()=>rows
+    .filter(r=>r.ledger_id&&parseFloat(r.amount||0)>0)
+    .map(r=>({
+      ledger_id:r.ledger_id,
+      dr_amount:r.entry_type==="Dr"?parseFloat(r.amount||0):0,
+      cr_amount:r.entry_type==="Cr"?parseFloat(r.amount||0):0,
+      narration:r.narration,
+    }));
+ 
+  const totalDr=rows.filter(r=>r.entry_type==="Dr").reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
+  const totalCr=rows.filter(r=>r.entry_type==="Cr").reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
+  const diff=Math.abs(totalDr-totalCr);
+  const balanced=diff<0.01&&totalDr>0;
   const fR=n=>`Rs.${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
-
+ 
   const save=async()=>{
-    const validItems=items.filter(i=>i.ledger_id&&(parseFloat(i.dr_amount)||0)+(parseFloat(i.cr_amount)||0)>0);
-    if(validItems.length<2)return toast("At least 2 ledger entries required","error");
-    if(!balanced)return toast(`Not balanced! Dr: ${fR(totalDr)}, Cr: ${fR(totalCr)}. Diff: ${fR(Math.abs(totalDr-totalCr))}`,"error");
+    const items=toDoubleEntry();
+    if(items.length<2)return toast("At least 2 entries required","error");
+    if(!balanced)return toast(`Not balanced! Dr: ${fR(totalDr)}, Cr: ${fR(totalCr)}. Add ${fR(diff)} more to ${totalDr<totalCr?"Dr":"Cr"} side`,"error");
     setSaving(true);
     try{
-      await api(`/accounting/companies/${companyId}/vouchers`,"POST",{voucher_type:vtype,date:form.date,ref_no:form.ref_no,narration:form.narration,party_ledger_id:form.party_ledger_id||null,party_name:form.party_name||null,items:validItems.map(i=>({ledger_id:i.ledger_id,dr_amount:parseFloat(i.dr_amount)||0,cr_amount:parseFloat(i.cr_amount)||0,narration:i.narration}))},token);
-      toast("Voucher saved!","success");
-      setForm({date:todayStr(),ref_no:"",narration:"",party_ledger_id:"",party_name:""});
-      setItems([{ledger_id:"",dr_amount:"",cr_amount:"",narration:""},{ledger_id:"",dr_amount:"",cr_amount:"",narration:""}]);
+      const res=await api(`/accounting/companies/${companyId}/vouchers`,"POST",{
+        voucher_type:vtype,date:form.date,ref_no:form.ref_no,
+        narration:form.narration,party_name:form.party_name||null,items
+      },token);
+      toast(`✅ ${res.voucher?.voucher_no} saved!`,"success");
+      setForm({date:todayStr(),ref_no:"",narration:"",party_name:""});
+      setRows([{ledger_id:"",amount:"",entry_type:"Dr",narration:""},{ledger_id:"",amount:"",entry_type:"Cr",narration:""}]);
     }catch(e){toast(e.message,"error");}
     setSaving(false);
   };
-
-  const cancelVoucher=async id=>{if(!window.confirm("Cancel voucher?"))return;try{await api(`/accounting/companies/${companyId}/vouchers/${id}/cancel`,"PATCH",{},token);toast("Voucher cancelled","success");loadVouchers();}catch(e){toast(e.message,"error");}};
-  const deleteVoucher=async id=>{if(!window.confirm("Delete voucher permanently?"))return;try{await api(`/accounting/companies/${companyId}/vouchers/${id}`,"DELETE",null,token);toast("Deleted","success");loadVouchers();}catch(e){toast(e.message,"error");}};
-
-  // Auto-fill Dr/Cr based on voucher type
-  const autoFill=(rowIdx,ledgerId,vt)=>{
-    const ledger=ledgers.find(l=>l.id===ledgerId);if(!ledger)return;
-    const n=[...items];
-    if(vt==="RECEIPT"){if(rowIdx===0)n[rowIdx]={...n[rowIdx],ledger_id:ledgerId,cr_amount:"",dr_amount:""};else n[rowIdx]={...n[rowIdx],ledger_id:ledgerId};}
-    else if(vt==="PAYMENT"){n[rowIdx]={...n[rowIdx],ledger_id:ledgerId};}
-    else{n[rowIdx]={...n[rowIdx],ledger_id:ledgerId};}
-    setItems(n);
-  };
-
+ 
+  const cancelVoucher=async id=>{if(!window.confirm("Cancel?"))return;try{await api(`/accounting/companies/${companyId}/vouchers/${id}/cancel`,"PATCH",{},token);toast("Cancelled","success");loadVouchers();}catch(e){toast(e.message,"error");}};
+  const deleteVoucher=async id=>{if(!window.confirm("Delete permanently?"))return;try{await api(`/accounting/companies/${companyId}/vouchers/${id}`,"DELETE",null,token);toast("Deleted","success");loadVouchers();}catch(e){toast(e.message,"error");}};
+ 
   const vtypeInfo=VTYPES.find(v=>v.key===vtype)||VTYPES[0];
-
+ 
   return(<div>
-    <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
-      {[{k:"entry",l:"📝 Entry"},{k:"list",l:"📋 Vouchers"}].map(t=>(<button key={t.k} onClick={()=>setViewMode(t.k)} style={{padding:"7px 16px",borderRadius:8,border:"1px solid",cursor:"pointer",fontSize:12,fontFamily:"inherit",borderColor:viewMode===t.k?"#1F6FEB":"#30363D",background:viewMode===t.k?"#0c1d2e":"transparent",color:viewMode===t.k?"#58a6ff":"#8B949E",fontWeight:viewMode===t.k?600:400}}>{t.l}</button>))}
+    {/* Tab Switch */}
+    <div style={{display:"flex",gap:6,marginBottom:14}}>
+      {[{k:"entry",l:"📝 New Entry"},{k:"list",l:"📋 Voucher List"}].map(t=>(
+        <button key={t.k} onClick={()=>setViewMode(t.k)} style={{padding:"8px 18px",borderRadius:8,border:"1px solid",cursor:"pointer",fontSize:12,fontFamily:"inherit",borderColor:viewMode===t.k?"#1F6FEB":"#30363D",background:viewMode===t.k?"#0c1d2e":"transparent",color:viewMode===t.k?"#58a6ff":"#8B949E",fontWeight:viewMode===t.k?600:400}}>{t.l}</button>
+      ))}
     </div>
-
+ 
     {viewMode==="entry"&&(<div>
-      {/* Voucher Type Selector */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:16}}>
-        {VTYPES.map(v=>(<button key={v.key} onClick={()=>setVtype(v.key)} style={{padding:"10px 6px",borderRadius:8,border:`1px solid ${vtype===v.key?"#1F6FEB":"#30363D"}`,background:vtype===v.key?"#0c1d2e":"transparent",color:vtype===v.key?"#58a6ff":"#8B949E",cursor:"pointer",fontFamily:"inherit",textAlign:"center"}}>
-          <div style={{fontSize:11,fontWeight:700,marginBottom:2}}>{v.label.split(":")[0]}:</div>
-          <div style={{fontSize:12,fontWeight:600,color:vtype===v.key?"#E6EDF3":"#8B949E"}}>{v.label.split(": ")[1]}</div>
-          <div style={{fontSize:10,color:"#8B949E",marginTop:2}}>{v.desc}</div>
-        </button>))}
+      {/* Voucher Type Buttons F4-F9 */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:14}}>
+        {VTYPES.map(v=>(
+          <button key={v.key} onClick={()=>handleVtypeChange(v.key)} style={{padding:"10px 6px",borderRadius:10,border:`2px solid ${vtype===v.key?"#1F6FEB":"#30363D"}`,background:vtype===v.key?"#0c1d2e":"#161B22",color:vtype===v.key?"#58a6ff":"#8B949E",cursor:"pointer",fontFamily:"inherit",textAlign:"center",transition:"all 0.15s"}}>
+            <div style={{fontSize:12,fontWeight:700,color:vtype===v.key?"#1F6FEB":"#8B949E"}}>{v.label.split(":")[0]}:</div>
+            <div style={{fontSize:13,fontWeight:700,color:vtype===v.key?"#E6EDF3":"#C9D1D9",margin:"3px 0"}}>{v.label.split(": ")[1]}</div>
+            <div style={{fontSize:10,color:"#8B949E"}}>{v.desc}</div>
+          </button>
+        ))}
       </div>
-
-      <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}>
-        <div style={{fontSize:12,color:"#58a6ff",fontWeight:600}}>{vtypeInfo.label} — {vtypeInfo.desc}</div>
-        <div style={{fontSize:11,color:"#8B949E",marginTop:4}}>
-          {vtype==="CONTRA"&&"Use for: Cash deposit to bank, Bank withdrawal, Transfer between bank accounts"}
-          {vtype==="PAYMENT"&&"Use for: Vendor payment, Rent paid, Salary paid, Any outgoing payment"}
-          {vtype==="RECEIPT"&&"Use for: Customer payment received, Cash inflow, Any incoming receipt"}
-          {vtype==="JOURNAL"&&"Use for: Adjustments, Depreciation, TDS entries, Opening balances"}
-          {vtype==="SALES"&&"Use for: Sales invoice entries, Revenue booking"}
-          {vtype==="PURCHASE"&&"Use for: Purchase invoice entries, Stock purchase"}
-        </div>
+ 
+      {/* Info Banner */}
+      <div style={{...S.card,background:"#0c1d2e",border:`1px solid #1f4872`,marginBottom:14,padding:"10px 14px"}}>
+        <span style={{fontSize:12,color:"#58a6ff",fontWeight:600}}>{vtypeInfo.label}</span>
+        <span style={{fontSize:11,color:"#8B949E",marginLeft:10}}>
+          {vtype==="RECEIPT" &&"Debit = Cash/Bank received. Credit = Income/Party ledger."}
+          {vtype==="PAYMENT" &&"Credit = Cash/Bank paid from. Debit = Expense/Vendor ledger."}
+          {vtype==="CONTRA"  &&"Debit = Account receiving cash. Credit = Account giving cash."}
+          {vtype==="JOURNAL" &&"Enter adjustment entries. Dr and Cr must balance."}
+          {vtype==="SALES"   &&"Debit = Party/Debtor. Credit = Sales + Tax ledgers."}
+          {vtype==="PURCHASE"&&"Debit = Purchase + Tax ledgers. Credit = Party/Creditor."}
+        </span>
       </div>
-
-      {/* Form Header */}
+ 
+      {/* Header Fields */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:14}}>
         <div><label style={S.label}>Date *</label><input style={S.input} type="date" value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div>
-        <div><label style={S.label}>Ref No / Cheque No</label><input style={S.input} placeholder="Ref number" value={form.ref_no} onChange={e=>setForm(p=>({...p,ref_no:e.target.value}))}/></div>
-        <div><label style={S.label}>Party Name</label><input style={S.input} placeholder="Customer/Vendor name" value={form.party_name} onChange={e=>setForm(p=>({...p,party_name:e.target.value}))}/></div>
-        <div><label style={S.label}>Party Ledger</label><select style={S.select} value={form.party_ledger_id} onChange={e=>setForm(p=>({...p,party_ledger_id:e.target.value}))}><option value="">Select</option>{ledgers.filter(l=>["Sundry Debtors","Sundry Creditors","Cash-in-Hand","Bank Accounts"].includes(l.group_name)).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
+        <div><label style={S.label}>Ref / Cheque No</label><input style={S.input} placeholder="Optional" value={form.ref_no} onChange={e=>setForm(p=>({...p,ref_no:e.target.value}))}/></div>
+        <div><label style={S.label}>Party Name</label><input style={S.input} placeholder="Customer / Vendor" value={form.party_name} onChange={e=>setForm(p=>({...p,party_name:e.target.value}))}/></div>
+        <div><label style={S.label}>Narration</label><input style={S.input} placeholder="Brief description" value={form.narration} onChange={e=>setForm(p=>({...p,narration:e.target.value}))}/></div>
       </div>
-      <div style={S.fg}><label style={S.label}>Narration</label><input style={S.input} placeholder="Brief description of transaction..." value={form.narration} onChange={e=>setForm(p=>({...p,narration:e.target.value}))}/></div>
-
-      {/* Ledger Rows (Double Entry) */}
-      <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
-        Ledger Entries {badge("Double Entry","blue")}
-        <span style={{fontSize:11,color:"#8B949E",marginLeft:"auto"}}>Total Dr: <span style={{color:"#3fb950",fontWeight:700}}>{fR(totalDr)}</span> &nbsp; Total Cr: <span style={{color:"#f85149",fontWeight:700}}>{fR(totalCr)}</span> &nbsp; {balanced?badge("Balanced ✓","green"):badge(`Diff: ${fR(Math.abs(totalDr-totalCr))}`,"red")}</span>
+ 
+      {/* Balance Bar */}
+      <div style={{background:"#0D1117",borderRadius:10,padding:"10px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{color:"#8B949E",fontSize:12}}>Total Dr:</span>
+          <span style={{color:"#3fb950",fontWeight:700,fontSize:14}}>{fR(totalDr)}</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{color:"#8B949E",fontSize:12}}>Total Cr:</span>
+          <span style={{color:"#f85149",fontWeight:700,fontSize:14}}>{fR(totalCr)}</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{color:"#8B949E",fontSize:12}}>Difference:</span>
+          <span style={{color:balanced?"#3fb950":"#f85149",fontWeight:700,fontSize:14}}>{balanced?"✅ Balanced":fR(diff)+" ⚠"}</span>
+        </div>
+        {!balanced&&totalDr>0&&<div style={{fontSize:11,color:"#e3b341",marginLeft:"auto"}}>
+          Add <b>{fR(diff)}</b> to <b>{totalDr<totalCr?"Dr":"Cr"}</b> side to balance
+        </div>}
       </div>
-      <div style={{overflowX:"auto"}}><table style={{...S.tbl,minWidth:600}}><thead><tr>{["#","Ledger Account","Dr Amount (Rs.)","Cr Amount (Rs.)","Narration",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-        <tbody>{items.map((item,i)=>(<tr key={i}>
-          <td style={{...S.td,width:30,color:"#8B949E",fontWeight:700}}>{i+1}</td>
-          <td style={S.td}><select value={item.ledger_id} onChange={e=>autoFill(i,e.target.value,vtype)} style={{...S.select,fontSize:12}}>
-            <option value="">— Select Ledger —</option>
-            {["Asset","Liability","Income","Expense"].map(n=>(<optgroup key={n} label={n}>{ledgers.filter(l=>l.nature===n).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</optgroup>))}
-          </select></td>
-          <td style={S.td}><input style={{...S.input,textAlign:"right"}} type="number" placeholder="0.00" value={item.dr_amount} onChange={e=>setItem(i,"dr_amount",e.target.value)}/></td>
-          <td style={S.td}><input style={{...S.input,textAlign:"right"}} type="number" placeholder="0.00" value={item.cr_amount} onChange={e=>setItem(i,"cr_amount",e.target.value)}/></td>
-          <td style={S.td}><input style={{...S.input,fontSize:11}} placeholder="Line narration" value={item.narration} onChange={e=>setItem(i,"narration",e.target.value)}/></td>
-          <td style={S.tdL}><button onClick={()=>removeRow(i)} disabled={items.length<=2} style={{...S.btnDanger,padding:"3px 8px",fontSize:11,opacity:items.length<=2?0.3:1}}>✕</button></td>
-        </tr>))}</tbody>
-      </table></div>
-      <div style={{display:"flex",gap:10,marginTop:10,alignItems:"center"}}>
-        <button onClick={addRow} style={{...S.btnGhost,fontSize:12}}>+ Add Row</button>
-        <div style={{marginLeft:"auto",display:"flex",gap:10}}>
-          <button onClick={()=>{setForm({date:todayStr(),ref_no:"",narration:"",party_ledger_id:"",party_name:""});setItems([{ledger_id:"",dr_amount:"",cr_amount:"",narration:""},{ledger_id:"",dr_amount:"",cr_amount:"",narration:""}]);}} style={S.btnGhost}>Clear</button>
-          <button onClick={save} disabled={saving||!balanced} style={{...S.btnG,opacity:saving||!balanced?0.5:1,minWidth:140}}>{saving?"Saving...":balanced?`Save ${vtypeInfo.label}`:"Balance First"}</button>
+ 
+      {/* Single Entry Rows */}
+      <div style={{...S.card,padding:0,overflow:"hidden"}}>
+        <table style={{...S.tbl}}>
+          <thead>
+            <tr>
+              <th style={{...S.th,width:30}}>#</th>
+              <th style={S.th}>Ledger Account</th>
+              <th style={{...S.th,width:120}}>Amount (Rs.)</th>
+              <th style={{...S.th,width:130,textAlign:"center"}}>Dr / Cr</th>
+              <th style={S.th}>Narration (optional)</th>
+              <th style={{...S.th,width:40}}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row,i)=>(
+              <tr key={i} style={{background:row.entry_type==="Dr"?"#0a1f0a18":"#1f0a0a18"}}>
+                <td style={{...S.td,color:"#8B949E",fontWeight:700,textAlign:"center"}}>{i+1}</td>
+                <td style={S.td}>
+                  <select value={row.ledger_id} onChange={e=>setRow(i,"ledger_id",e.target.value)} style={{...S.select,fontSize:12}}>
+                    <option value="">— Select Ledger Account —</option>
+                    {["Asset","Liability","Income","Expense"].map(n=>(
+                      <optgroup key={n} label={`── ${n} ──`}>
+                        {ledgers.filter(l=>l.nature===n).map(l=>(
+                          <option key={l.id} value={l.id}>{l.name} ({l.group_name})</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </td>
+                <td style={S.td}>
+                  <input
+                    style={{...S.input,textAlign:"right",fontWeight:600,fontSize:14,color:row.entry_type==="Dr"?"#3fb950":"#f85149"}}
+                    type="number"
+                    placeholder="0.00"
+                    value={row.amount}
+                    onChange={e=>setRow(i,"amount",e.target.value)}
+                  />
+                </td>
+                <td style={{...S.td,textAlign:"center"}}>
+                  <div style={{display:"flex",gap:6,justifyContent:"center"}}>
+                    {["Dr","Cr"].map(t=>(
+                      <button key={t} onClick={()=>setRow(i,"entry_type",t)} style={{
+                        padding:"6px 16px",borderRadius:8,border:"2px solid",cursor:"pointer",
+                        fontFamily:"inherit",fontSize:13,fontWeight:700,minWidth:50,
+                        borderColor:row.entry_type===t?(t==="Dr"?"#238636":"#c0392b"):"#30363D",
+                        background:row.entry_type===t?(t==="Dr"?"#0d2818":"#2d0e0e"):"transparent",
+                        color:row.entry_type===t?(t==="Dr"?"#3fb950":"#f85149"):"#8B949E",
+                      }}>{t}</button>
+                    ))}
+                  </div>
+                </td>
+                <td style={S.td}>
+                  <input style={{...S.input,fontSize:11}} placeholder="Line narration" value={row.narration} onChange={e=>setRow(i,"narration",e.target.value)}/>
+                </td>
+                <td style={{...S.tdL,textAlign:"center"}}>
+                  <button onClick={()=>removeRow(i)} disabled={rows.length<=2} style={{background:"none",border:"none",color:"#f85149",cursor:"pointer",fontSize:18,opacity:rows.length<=2?0.3:1}}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+ 
+      {/* Action Buttons */}
+      <div style={{display:"flex",gap:10,marginTop:12,alignItems:"center"}}>
+        <button onClick={addRow} style={S.btnGhost}>+ Add Row</button>
+        <button onClick={()=>{setForm({date:todayStr(),ref_no:"",narration:"",party_name:""});setRows([{ledger_id:"",amount:"",entry_type:"Dr",narration:""},{ledger_id:"",amount:"",entry_type:"Cr",narration:""}]);}} style={S.btnGhost}>Clear</button>
+        <div style={{flex:1}}/>
+        <button
+          onClick={save}
+          disabled={saving||!balanced}
+          style={{
+            ...S.btnG,
+            minWidth:180,
+            padding:"11px 24px",
+            fontSize:14,
+            opacity:saving||!balanced?0.5:1,
+            background:balanced?"#238636":"#2d4a2d",
+            cursor:!balanced?"not-allowed":"pointer",
+          }}
+        >
+          {saving?"💾 Saving..."
+            :balanced?`💾 Save ${vtypeInfo.label.split(": ")[1]}`
+            :`Balance (diff: ${fR(diff)})`}
+        </button>
+      </div>
+ 
+      {/* Quick Guide */}
+      <div style={{...S.card,background:"#0D1117",marginTop:14}}>
+        <div style={{fontSize:11,color:"#8B949E",lineHeight:1.9}}>
+          <span style={{color:"#58a6ff",fontWeight:600}}>Quick Guide: </span>
+          Enter ledger, amount and select Dr or Cr for each row. 
+          Total Dr must equal Total Cr to save. 
+          Use <span style={{color:"#3fb950"}}>Dr</span> for receiving/expense accounts and <span style={{color:"#f85149"}}>Cr</span> for giving/income accounts.
         </div>
       </div>
     </div>)}
-
+ 
+    {/* Voucher List */}
     {viewMode==="list"&&(<div>
       <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
-        {["all",...VTYPES.map(v=>v.key)].map(t=>(<button key={t} onClick={()=>setFilterType(t)} style={{padding:"4px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,fontFamily:"inherit",borderColor:filterType===t?"#58a6ff":"#30363D",background:filterType===t?"#0c1d2e":"transparent",color:filterType===t?"#58a6ff":"#8B949E"}}>{t==="all"?"All":t}</button>))}
+        {["all","CONTRA","PAYMENT","RECEIPT","JOURNAL","SALES","PURCHASE"].map(t=>(
+          <button key={t} onClick={()=>setFilterType(t)} style={{padding:"4px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,fontFamily:"inherit",borderColor:filterType===t?"#58a6ff":"#30363D",background:filterType===t?"#0c1d2e":"transparent",color:filterType===t?"#58a6ff":"#8B949E"}}>{t==="all"?"All":t}</button>
+        ))}
+        <button onClick={loadVouchers} style={{...S.btnGhost,marginLeft:"auto",fontSize:11}}>🔄 Refresh</button>
       </div>
-      {loading?<Spinner/>:(<div style={S.card}>{vouchers.length===0?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No vouchers yet.</div>:(<table style={S.tbl}><thead><tr>{["Voucher No","Date","Type","Party","Narration","Amount","Actions"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{vouchers.map(v=>(<tr key={v.id}><td style={{...S.td,color:"#58a6ff",cursor:"pointer",fontWeight:600}} onClick={async()=>{try{const d=await api(`/accounting/companies/${companyId}/vouchers/${v.id}`,"GET",null,token);setViewing(d.voucher);}catch(e){toast(e.message,"error");}}}>{v.voucher_no}</td><td style={S.td}>{v.date}</td><td style={S.td}>{badge(v.voucher_type,"gray")}</td><td style={{...S.td,maxWidth:150}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.party_name||"—"}</div></td><td style={{...S.td,maxWidth:180}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#8B949E"}}>{v.narration||"—"}</div></td><td style={{...S.td,fontWeight:600,color:"#3fb950"}}>{fR(v.total_amount)}</td><td style={S.tdL}><div style={{display:"flex",gap:4}}><button onClick={()=>cancelVoucher(v.id)} style={{...S.btnAmber,fontSize:11,padding:"4px 8px"}}>Cancel</button><button onClick={()=>deleteVoucher(v.id)} style={{...S.btnDanger,fontSize:11,padding:"4px 8px"}}>Del</button></div></td></tr>))}</tbody></table>)}</div>)}
+      {loading?<Spinner/>:(
+        <div style={S.card}>
+          {vouchers.length===0
+            ?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No vouchers yet. Start entering from the Entry tab.</div>
+            :(
+              <table style={S.tbl}>
+                <thead><tr>{["Voucher No","Date","Type","Party","Narration","Amount","Actions"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {vouchers.map(v=>(
+                    <tr key={v.id}>
+                      <td style={{...S.td,color:"#58a6ff",cursor:"pointer",fontWeight:600}}
+                        onClick={async()=>{try{const d=await api(`/accounting/companies/${companyId}/vouchers/${v.id}`,"GET",null,token);setViewing(d.voucher);}catch(e){toast(e.message,"error");}}}>
+                        {v.voucher_no}
+                      </td>
+                      <td style={S.td}>{v.date}</td>
+                      <td style={S.td}>{badge(v.voucher_type,"gray")}</td>
+                      <td style={{...S.td,maxWidth:150}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.party_name||"—"}</div></td>
+                      <td style={{...S.td,color:"#8B949E",maxWidth:180}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.narration||"—"}</div></td>
+                      <td style={{...S.td,fontWeight:600,color:"#3fb950"}}>{fR(v.total_amount)}</td>
+                      <td style={S.tdL}>
+                        <div style={{display:"flex",gap:4}}>
+                          <button onClick={()=>cancelVoucher(v.id)} style={{...S.btnAmber,fontSize:11,padding:"4px 8px"}}>Cancel</button>
+                          <button onClick={()=>deleteVoucher(v.id)} style={{...S.btnDanger,fontSize:11,padding:"4px 8px"}}>Del</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          }
+        </div>
+      )}
     </div>)}
-
-    {viewing&&(<Modal title={`Voucher — ${viewing.voucher_no}`} onClose={()=>setViewing(null)} wide>
-      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-        {badge(viewing.voucher_type,"blue")}{badge(viewing.date,"gray")}{viewing.party_name&&badge(viewing.party_name,"gray")}
-        <span style={{marginLeft:"auto",color:"#E6EDF3",fontWeight:700}}>{fR(viewing.total_amount)}</span>
-      </div>
-      {viewing.narration&&<div style={{fontSize:12,color:"#8B949E",marginBottom:12}}>Narration: {viewing.narration}</div>}
-      <table style={S.tbl}><thead><tr>{["#","Ledger Account","Group","Dr Amount","Cr Amount"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-      <tbody>{(viewing.items||[]).map((item,i)=>(<tr key={i}><td style={{...S.td,color:"#8B949E"}}>{i+1}</td><td style={{...S.td,fontWeight:600,color:"#E6EDF3"}}>{item.ledger_name}</td><td style={S.td}>{item.group_name}</td><td style={{...S.td,color:"#3fb950",fontWeight:item.dr_amount>0?700:400}}>{item.dr_amount>0?fR(item.dr_amount):"—"}</td><td style={{...S.tdL,color:"#f85149",fontWeight:item.cr_amount>0?700:400}}>{item.cr_amount>0?fR(item.cr_amount):"—"}</td></tr>))}</tbody>
-      <tfoot><tr><td colSpan={3} style={{...S.td,fontWeight:700,textAlign:"right"}}>Total</td><td style={{...S.td,color:"#3fb950",fontWeight:700}}>{fR((viewing.items||[]).reduce((a,i)=>a+parseFloat(i.dr_amount||0),0))}</td><td style={{...S.tdL,color:"#f85149",fontWeight:700}}>{fR((viewing.items||[]).reduce((a,i)=>a+parseFloat(i.cr_amount||0),0))}</td></tr></tfoot>
-      </table>
-    </Modal>)}
+ 
+    {/* Voucher Detail Modal */}
+    {viewing&&(
+      <Modal title={`Voucher — ${viewing.voucher_no}`} onClose={()=>setViewing(null)} wide>
+        <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+          {badge(viewing.voucher_type,"blue")} {badge(viewing.date,"gray")}
+          {viewing.party_name&&badge(viewing.party_name,"gray")}
+          <span style={{marginLeft:"auto",color:"#E6EDF3",fontWeight:700,fontSize:15}}>{fR(viewing.total_amount)}</span>
+        </div>
+        {viewing.narration&&<div style={{fontSize:12,color:"#8B949E",marginBottom:12,padding:"8px 12px",background:"#0D1117",borderRadius:6}}>📝 {viewing.narration}</div>}
+        <table style={S.tbl}>
+          <thead><tr>{["#","Ledger Account","Group","Dr Amount","Cr Amount"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>
+            {(viewing.items||[]).map((item,i)=>(
+              <tr key={i}>
+                <td style={{...S.td,color:"#8B949E",textAlign:"center"}}>{i+1}</td>
+                <td style={{...S.td,fontWeight:600,color:"#E6EDF3"}}>{item.ledger_name}</td>
+                <td style={S.td}>{item.group_name}</td>
+                <td style={{...S.td,color:"#3fb950",fontWeight:item.dr_amount>0?700:400}}>{item.dr_amount>0?fR(item.dr_amount):"—"}</td>
+                <td style={{...S.tdL,color:"#f85149",fontWeight:item.cr_amount>0?700:400}}>{item.cr_amount>0?fR(item.cr_amount):"—"}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={3} style={{...S.td,fontWeight:700,textAlign:"right"}}>Total</td>
+              <td style={{...S.td,color:"#3fb950",fontWeight:700}}>{fR((viewing.items||[]).reduce((a,i)=>a+parseFloat(i.dr_amount||0),0))}</td>
+              <td style={{...S.tdL,color:"#f85149",fontWeight:700}}>{fR((viewing.items||[]).reduce((a,i)=>a+parseFloat(i.cr_amount||0),0))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </Modal>
+    )}
   </div>);
 }
-
 // ── ACCOUNTING REPORTS ───────────────────────────────────────────────────────
 function AccountingReports({token,toast,companyId}){
   const[rtype,setRtype]=useState("trial-balance");const[fromDate,setFromDate]=useState(new Date(new Date().getFullYear(),3,1).toISOString().split("T")[0]);const[toDate,setToDate]=useState(todayStr());const[asOnDate,setAsOnDate]=useState(todayStr());const[data,setData]=useState(null);const[loading,setLoading]=useState(false);
@@ -713,7 +907,7 @@ function Settings({token,user,toast,onLogout,accentColor,setAccentColor}){
     </div>
   </div>);
 }
-
+ 
 // ── GSTR-3B ───────────────────────────────────────────────────────
 function GSTR3B({token,toast}){
   const[period,setPeriod]=useState(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`);
@@ -774,7 +968,7 @@ function GSTR3B({token,toast}){
     {!data&&<div style={{...S.card,textAlign:"center",padding:40}}><div style={{fontSize:40,marginBottom:12}}>📋</div><div style={{fontSize:14,fontWeight:600,color:"#E6EDF3",marginBottom:8}}>GSTR-3B Auto-Fill</div><div style={{color:"#8B949E",fontSize:13}}>Select period and click "Auto-Fill from Invoices" to populate GSTR-3B from your Sales and Purchase data.</div></div>}
   </div>);
 }
-
+ 
 // ── GSTR-1 ────────────────────────────────────────────────────────
 function GSTR1({token,toast}){
   const[period,setPeriod]=useState(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`);
@@ -802,7 +996,7 @@ function GSTR1({token,toast}){
     {!data&&<div style={{...S.card,textAlign:"center",padding:40}}><div style={{fontSize:40,marginBottom:12}}>📤</div><div style={{fontSize:14,fontWeight:600,color:"#E6EDF3",marginBottom:8}}>GSTR-1 Auto-Fill</div><div style={{color:"#8B949E",fontSize:13}}>Select period and click "Auto-Fill" to generate GSTR-1 from your Sales Invoices.</div></div>}
   </div>);
 }
-
+ 
 // ── E-INVOICE ────────────────────────────────────────────────────
 function EInvoice({token,toast}){
   const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);const[generating,setGenerating]=useState(null);const[result,setResult]=useState(null);const[search,setSearch]=useState("");
@@ -827,7 +1021,7 @@ function EInvoice({token,toast}){
     {loading?<Spinner/>:(<div style={S.card}><table style={S.tbl}><thead><tr>{["Invoice No","Date","Party","GSTIN","Amount","IRN Status","Action"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{filtered.map(inv=>(<tr key={inv.id}><td style={{...S.td,color:"#58a6ff",fontWeight:600}}>{inv.invoice_no}</td><td style={S.td}>{inv.invoice_date}</td><td style={{...S.td,fontWeight:500,color:"#E6EDF3"}}>{inv.party_name}</td><td style={S.td}><span style={S.mono}>{inv.party_gstin||"—"}</span></td><td style={{...S.td,fontWeight:600}}>{fR(inv.total_amount)}</td><td style={S.td}>{inv.einvoice_irn?<div>{badge("IRN Generated","green")}<div style={{...S.mono,fontSize:9,marginTop:2}}>{inv.einvoice_irn.substring(0,20)}...</div></div>:badge("Not Generated","gray")}</td><td style={S.tdL}>{!inv.einvoice_irn?<button onClick={()=>generate(inv.id)} disabled={generating===inv.id} style={{...S.btn,fontSize:11,padding:"5px 12px",opacity:generating===inv.id?0.5:1}}>{generating===inv.id?"Generating...":"Generate IRN"}</button>:<button onClick={()=>toast("IRN: "+inv.einvoice_irn,"success")} style={{...S.btnGhost,fontSize:11,padding:"5px 10px"}}>View IRN</button>}</td></tr>))}{!filtered.length&&<tr><td colSpan={7} style={{...S.td,textAlign:"center",color:"#8B949E",padding:20}}>No invoices found</td></tr>}</tbody></table></div>)}
   </div>);
 }
-
+ 
 // ── E-WAY BILL ──────────────────────────────────────────────────────
 function EWayBill({token,toast}){
   const[invoices,setInvoices]=useState([]);const[form,setForm]=useState({invoice_id:"",transporter_name:"",transporter_id:"",vehicle_no:"",vehicle_type:"Regular",distance:"100",supply_type:"Outward",sub_type:"Supply",doc_type:"Invoice",from_place:"",from_state:"",to_place:"",to_state:""});
@@ -870,34 +1064,35 @@ function EWayBill({token,toast}){
     </div>
   </div>);
 }
+
 // ── NAVIGATION ──────────────────────────────────────────────────────────────
 const NAV=[
   {key:"dashboard",   icon:"🏠",label:"Dashboard",          group:"MAIN"},
-  {key:"sales",       icon:"📄",label:"Sales Invoices",     group:"ACCOUNTING"},
-  {key:"purchases",   icon:"🧾",label:"Purchase Bills",     group:"ACCOUNTING"},
-  {key:"parties",     icon:"👥",label:"Parties",            group:"ACCOUNTING"},
-  {key:"products",    icon:"📦",label:"Products & Stock",   group:"ACCOUNTING"},
-  {key:"bank",        icon:"🏦",label:"Bank Statement",     group:"ACCOUNTING"},
-  {key:"reports",     icon:"📈",label:"Reports",            group:"ACCOUNTING"},
-  {key:"gst-clients", icon:"🏢",label:"GST Clients",        group:"GST"},
-  {key:"notices",     icon:"🔔",label:"Notice Manager",     group:"GST"},
-  {key:"returns",     icon:"📋",label:"Return Tracker",     group:"GST"},
-  {key:"reconcile",   icon:"⇄", label:"Reconciliation",     group:"GST"},
-  {key:"gstr2a",      icon:"📥",label:"GSTR-2A Import",     group:"GST"},
+  {key:"sales",       icon:"📄",label:"Sales Invoices",      group:"ACCOUNTING"},
+  {key:"purchases",   icon:"🧾",label:"Purchase Bills",      group:"ACCOUNTING"},
+  {key:"parties",     icon:"👥",label:"Parties",             group:"ACCOUNTING"},
+  {key:"products",    icon:"📦",label:"Products & Stock",    group:"ACCOUNTING"},
+  {key:"bank",        icon:"🏦",label:"Bank Statement",      group:"ACCOUNTING"},
+  {key:"reports",     icon:"📈",label:"Reports",             group:"ACCOUNTING"},
+  {key:"gst-clients", icon:"🏢",label:"GST Clients",         group:"GST"},
+  {key:"notices",     icon:"🔔",label:"Notice Manager",      group:"GST"},
+  {key:"returns",     icon:"📋",label:"Return Tracker",      group:"GST"},
+  {key:"reconcile",   icon:"⇄", label:"Reconciliation",      group:"GST"},
+  {key:"gstr2a",      icon:"📥",label:"GSTR-2A Import",      group:"GST"},
   {key:"acc-companies",icon:"🏗",label:"Companies",          group:"TALLY"},
   {key:"acc-groups",  icon:"🗂",label:"Chart of Accounts",   group:"TALLY"},
   {key:"acc-ledgers", icon:"📒",label:"Ledgers",             group:"TALLY"},
-  {key:"acc-vouchers",icon:"✏",label:"Voucher Entry",       group:"TALLY"},
+  {key:"acc-vouchers",icon:"✏",label:"Voucher Entry",        group:"TALLY"},
   {key:"acc-reports", icon:"📊",label:"Accounting Reports",  group:"TALLY"},
   {key:"calculator",  icon:"🧮",label:"GST Calculator",      group:"TOOLS"},
   {key:"calendar",    icon:"📅",label:"Due Date Calendar",   group:"TOOLS"},
-  {key:"reply",       icon:"✍", label:"Notice Reply AI",    group:"TOOLS"},
+  {key:"reply",       icon:"✍", label:"Notice Reply AI",     group:"TOOLS"},
   {key:"ai",          icon:"✦", label:"AI Assistant",        group:"TOOLS"},
   {key:"gstr3b",   icon:"📑", label:"GSTR-3B",    group:"GST FILING"},
-  {key:"gstr1",    icon:"📤", label:"GSTR-1",      group:"GST FILING"},
-  {key:"einvoice", icon:"🔖", label:"E-Invoice",   group:"GST FILING"},
-  {key:"ewaybill", icon:"🚛", label:"E-Way Bill",  group:"GST FILING"},
-  {key:"settings", icon:"⚙️",  label:"Settings",    group:"ACCOUNT"},
+{key:"gstr1",    icon:"📤", label:"GSTR-1",      group:"GST FILING"},
+{key:"einvoice", icon:"🔖", label:"E-Invoice",   group:"GST FILING"},
+{key:"ewaybill", icon:"🚛", label:"E-Way Bill",  group:"GST FILING"},
+{key:"settings", icon:"⚙",  label:"Settings",    group:"ACCOUNT"},
 ];
 
 const TITLES={
@@ -919,8 +1114,7 @@ export default function App(){
   const[toast,setToast]  =useState(null);
   const[collapsed,setCollapsed]=useState(false);
   const [accentColor, setAccentColor] = useState(
-  localStorage.getItem("taxpro_accent") || "#1F6FEB"
-);
+  localStorage.getItem("taxpro_accent") || "#1F6FEB");
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),4000);};
   const logout=()=>{localStorage.removeItem("taxpro_token");localStorage.removeItem("taxpro_user");localStorage.removeItem("taxpro_company");setUser(null);setToken("");};
   const onAuth=(u,t)=>{setUser(u);setToken(t);};
@@ -985,10 +1179,10 @@ export default function App(){
         {view==="reply"        &&<NoticeReply        token={token}/>}
         {view==="ai"           &&<AIAssistant        token={token}/>}
         {view==="gstr3b"   && <GSTR3B    token={token} toast={showToast}/>}
-        {view==="gstr1"    && <GSTR1     token={token} toast={showToast}/>}
-        {view==="einvoice" && <EInvoice  token={token} toast={showToast}/>}
-        {view==="ewaybill" && <EWayBill  token={token} toast={showToast}/>}
-        {view==="settings" && <Settings  token={token} user={user} toast={showToast}
+{view==="gstr1"    && <GSTR1     token={token} toast={showToast}/>}
+{view==="einvoice" && <EInvoice  token={token} toast={showToast}/>}
+{view==="ewaybill" && <EWayBill  token={token} toast={showToast}/>}
+{view==="settings" && <Settings  token={token} user={user} toast={showToast}
                          onLogout={logout}
                          accentColor={accentColor}
                          setAccentColor={setAccentColor}/>}
