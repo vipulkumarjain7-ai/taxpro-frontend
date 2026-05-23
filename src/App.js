@@ -676,37 +676,239 @@ function GSTR2AImport({token,toast}){
     {step===3&&(<div style={{textAlign:"center",padding:40}}><div style={{fontSize:56,marginBottom:12}}>🎉</div><div style={{fontSize:20,fontWeight:700,color:"#3fb950",marginBottom:8}}>GSTR-2A Imported!</div><button onClick={()=>{setFile(null);setPreview(null);setStep(1);}} style={S.btn}>Import Another</button></div>)}
   </div>);
 }
+// ── SETTINGS PAGE ─────────────────────────────────────────────────
+function Settings({token,user,toast,onLogout,accentColor,setAccentColor}){
+  const[profile,setProfile]=useState({name:user.name||"",firm_name:user.firm_name||"",frn:user.frn||"",phone:"",gstin:""});
+  const[saving,setSaving]=useState(false);
+  const COLORS=[{label:"Blue",val:"#1F6FEB"},{label:"Green",val:"#238636"},{label:"Purple",val:"#6e40c9"},{label:"Teal",val:"#0e9182"},{label:"Orange",val:"#d06b2d"},{label:"Red",val:"#c0392b"}];
+  const saveProfile=async()=>{setSaving(true);try{await api("/auth/profile","PUT",profile,token);toast("Profile updated!","success");}catch(e){toast(e.message,"error");}setSaving(false);};
+  return(<div style={{maxWidth:700}}>
+    <div style={S.twoCol}>
+      {/* Profile Card */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>👤 Profile Settings</div>
+        {[{l:"Full Name *",k:"name",ph:"CA Rahul Prakash"},{l:"Firm Name *",k:"firm_name",ph:"Prakash & Associates"},{l:"FRN",k:"frn",ph:"001234N"},{l:"Phone",k:"phone",ph:"9876543210"},{l:"GSTIN",k:"gstin",ph:"09AABCS1429B1Z7"}].map(f=>(<div key={f.k} style={S.fg}><label style={S.label}>{f.l}</label><input style={S.input} placeholder={f.ph} value={profile[f.k]} onChange={e=>setProfile(p=>({...p,[f.k]:e.target.value}))}/></div>))}
+        <div style={S.fg}><label style={S.label}>Email (cannot change)</label><input style={{...S.input,opacity:0.5}} value={user.email} disabled/></div>
+        <button onClick={saveProfile} disabled={saving} style={{...S.btn,width:"100%",opacity:saving?0.6:1}}>{saving?"Saving...":"💾 Save Profile"}</button>
+      </div>
+      <div>
+        {/* Theme Card */}
+        <div style={{...S.card,marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:14}}>🎨 Theme — Accent Color</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            {COLORS.map(c=>(<button key={c.val} onClick={()=>setAccentColor(c.val)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"10px 14px",borderRadius:10,border:`2px solid ${accentColor===c.val?"#fff":"transparent"}`,background:accentColor===c.val?"#21262D":"transparent",cursor:"pointer",fontFamily:"inherit"}}><div style={{width:32,height:32,borderRadius:"50%",background:c.val,boxShadow:accentColor===c.val?"0 0 0 3px rgba(255,255,255,0.3)":"none"}}/><span style={{fontSize:11,color:accentColor===c.val?"#E6EDF3":"#8B949E"}}>{c.label}</span></button>))}
+          </div>
+          <div style={{marginTop:14,padding:12,borderRadius:8,background:accentColor,color:"#fff",fontSize:12,textAlign:"center",fontWeight:600}}>Preview: {accentColor}</div>
+        </div>
+        {/* Account Card */}
+        <div style={S.card}>
+          <div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:14}}>⚙️ Account</div>
+          <div style={{padding:"10px 0",borderBottom:"1px solid #21262D",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:12,color:"#C9D1D9"}}>Logged in as</span><span style={{fontSize:12,color:"#58a6ff",fontWeight:600}}>{user.email}</span></div>
+          <div style={{padding:"10px 0",borderBottom:"1px solid #21262D",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:12,color:"#C9D1D9"}}>App Version</span><span style={{fontSize:12,color:"#8B949E"}}>TaxPro v4.0</span></div>
+          <div style={{padding:"10px 0",borderBottom:"1px solid #21262D",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:12,color:"#C9D1D9"}}>Database</span>{badge("PostgreSQL","green")}</div>
+          <div style={{padding:"10px 0",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:12,color:"#C9D1D9"}}>Status</span>{badge("Live ✓","green")}</div>
+          <button onClick={onLogout} style={{width:"100%",padding:"11px",borderRadius:8,border:"1px solid #6e1c1c",background:"#2d0e0e",color:"#f85149",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:600}}>🚪 Logout</button>
+        </div>
+      </div>
+    </div>
+  </div>);
+}
 
+// ── GSTR-3B ───────────────────────────────────────────────────────
+function GSTR3B({token,toast}){
+  const[period,setPeriod]=useState(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`);
+  const[data,setData]=useState(null);const[loading,setLoading]=useState(false);
+  const[overrides,setOverrides]=useState({});
+  const fR=n=>`Rs.${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
+  const load=async()=>{setLoading(true);try{const d=await api(`/gstr3b/${period}`,"GET",null,token);setData(d);setOverrides({});}catch(e){toast(e.message,"error");}setLoading(false);};
+  const get=(key,def)=>overrides[key]!==undefined?parseFloat(overrides[key])||0:parseFloat(def||0);
+  const printForm=()=>{const w=window.open("","_blank");w.document.write(`<html><head><title>GSTR-3B</title><style>body{font-family:Arial;margin:20px;font-size:12px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #000;padding:7px;}th{background:#ccc;}.section{background:#e8e8e8;font-weight:bold;padding:8px;margin-top:15px;}</style></head><body><h2>FORM GSTR-3B</h2><p><b>Period:</b> ${period} &nbsp; <b>Generated on:</b> ${new Date().toLocaleDateString("en-IN")}</p>${document.getElementById("gstr3b-content")?.innerHTML||""}</body></html>`);w.document.close();w.print();};
+  const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const periodOptions=[];for(let m=0;m<12;m++){const yr=new Date().getFullYear();periodOptions.push(`${yr}-${String(m+1).padStart(2,"0")}`);}
+  return(<div>
+    <div style={{display:"flex",gap:10,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+      <span style={{fontSize:13,fontWeight:600,color:"#E6EDF3"}}>GSTR-3B Summary Return</span>
+      <select style={{...S.select,width:"auto"}} value={period} onChange={e=>setPeriod(e.target.value)}>{periodOptions.map(p=>{const[y,m]=p.split("-");return<option key={p} value={p}>{MONTHS[parseInt(m)-1]} {y}</option>;})}</select>
+      <button onClick={load} style={S.btn}>{loading?"Loading...":"Auto-Fill from Invoices"}</button>
+      {data&&<button onClick={printForm} style={S.btnG}>🖨 Print / PDF</button>}
+    </div>
+    {loading&&<Spinner/>}
+    {data&&(<div id="gstr3b-content">
+      {/* Table 3.1 */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:12}}>3.1 Details of Outward Supplies and Inward Supplies liable to Reverse Charge</div>
+        <table style={S.tbl}><thead><tr>{["Nature of Supplies","Total Taxable Value","IGST","CGST","SGST/UTGST","Cess"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <tbody>
+          {[{label:"(a) Outward taxable supplies (other than zero rated, nil rated and exempted)",t:data.table31.outward_taxable_supplies,igst:data.table31.igst,cgst:data.table31.cgst,sgst:data.table31.sgst},
+            {label:"(b) Outward taxable supplies (zero rated)",t:0,igst:0,cgst:0,sgst:0},
+            {label:"(c) Other outward supplies (nil rated, exempted)",t:0,igst:0,cgst:0,sgst:0},
+            {label:"(d) Inward supplies (liable to reverse charge)",t:0,igst:0,cgst:0,sgst:0},
+          ].map((row,i)=>(<tr key={i}><td style={S.td}>{row.label}</td><td style={S.td}>{fR(row.t)}</td><td style={S.td}>{fR(row.igst)}</td><td style={S.td}>{fR(row.cgst)}</td><td style={S.td}>{fR(row.sgst)}</td><td style={S.tdL}>—</td></tr>))}
+        </tbody></table>
+      </div>
+      {/* Table 4 — ITC */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:12}}>4. Eligible ITC</div>
+        <table style={S.tbl}><thead><tr>{["Details","IGST","CGST","SGST/UTGST","Cess"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <tbody>
+          <tr><td style={S.td}>(A) ITC Available (whether in full or part)</td><td style={{...S.td,color:"#3fb950",fontWeight:600}}>{fR(data.table4.itc_igst)}</td><td style={{...S.td,color:"#3fb950",fontWeight:600}}>{fR(data.table4.itc_cgst)}</td><td style={{...S.td,color:"#3fb950",fontWeight:600}}>{fR(data.table4.itc_sgst)}</td><td style={S.tdL}>—</td></tr>
+          <tr><td style={S.td}>(B) ITC Reversed</td><td style={S.td}>0.00</td><td style={S.td}>0.00</td><td style={S.td}>0.00</td><td style={S.tdL}>—</td></tr>
+          <tr><td style={{...S.td,fontWeight:700}}>Net ITC Available (A) - (B)</td><td style={{...S.td,fontWeight:700,color:"#3fb950"}}>{fR(data.table4.itc_igst)}</td><td style={{...S.td,fontWeight:700,color:"#3fb950"}}>{fR(data.table4.itc_cgst)}</td><td style={{...S.td,fontWeight:700,color:"#3fb950"}}>{fR(data.table4.itc_sgst)}</td><td style={S.tdL}>—</td></tr>
+        </tbody></table>
+      </div>
+      {/* Table 6 — Tax Payable */}
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:12}}>6. Payment of Tax</div>
+        <table style={S.tbl}><thead><tr>{["Description","IGST","CGST","SGST/UTGST","Cess"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <tbody>
+          <tr><td style={S.td}>Tax Payable</td><td style={{...S.td,color:"#e3b341",fontWeight:600}}>{fR(data.table31.igst)}</td><td style={{...S.td,color:"#e3b341",fontWeight:600}}>{fR(data.table31.cgst)}</td><td style={{...S.td,color:"#e3b341",fontWeight:600}}>{fR(data.table31.sgst)}</td><td style={S.tdL}>—</td></tr>
+          <tr><td style={S.td}>ITC Credited</td><td style={{...S.td,color:"#3fb950"}}>{fR(data.table4.itc_igst)}</td><td style={{...S.td,color:"#3fb950"}}>{fR(data.table4.itc_cgst)}</td><td style={{...S.td,color:"#3fb950"}}>{fR(data.table4.itc_sgst)}</td><td style={S.tdL}>—</td></tr>
+          <tr style={{background:"#0c1d2e"}}><td style={{...S.td,fontWeight:700}}>Net Tax Payable</td><td style={{...S.td,fontWeight:700,color:data.table6.igst_payable>0?"#f85149":"#3fb950"}}>{fR(data.table6.igst_payable)}</td><td style={{...S.td,fontWeight:700,color:data.table6.cgst_payable>0?"#f85149":"#3fb950"}}>{fR(data.table6.cgst_payable)}</td><td style={{...S.td,fontWeight:700,color:data.table6.sgst_payable>0?"#f85149":"#3fb950"}}>{fR(data.table6.sgst_payable)}</td><td style={S.tdL}>—</td></tr>
+        </tbody></table>
+        <div style={{...S.card,background:data.table6.total_payable>0?"#2d0e0e":"#0d2818",border:`1px solid ${data.table6.total_payable>0?"#6e1c1c":"#238636"}`,textAlign:"center",marginTop:12,marginBottom:0}}>
+          <div style={S.kpiLabel}>Total GST Payable in Cash</div>
+          <div style={{fontSize:28,fontWeight:800,color:data.table6.total_payable>0?"#f85149":"#3fb950"}}>{fR(data.table6.total_payable)}</div>
+        </div>
+      </div>
+    </div>)}
+    {!data&&<div style={{...S.card,textAlign:"center",padding:40}}><div style={{fontSize:40,marginBottom:12}}>📋</div><div style={{fontSize:14,fontWeight:600,color:"#E6EDF3",marginBottom:8}}>GSTR-3B Auto-Fill</div><div style={{color:"#8B949E",fontSize:13}}>Select period and click "Auto-Fill from Invoices" to populate GSTR-3B from your Sales and Purchase data.</div></div>}
+  </div>);
+}
+
+// ── GSTR-1 ────────────────────────────────────────────────────────
+function GSTR1({token,toast}){
+  const[period,setPeriod]=useState(`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`);
+  const[data,setData]=useState(null);const[loading,setLoading]=useState(false);const[tab,setTab]=useState("b2b");
+  const fR=n=>`Rs.${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
+  const load=async()=>{setLoading(true);try{const d=await api(`/gstr1/${period}`,"GET",null,token);setData(d);}catch(e){toast(e.message,"error");}setLoading(false);};
+  const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const periodOptions=[];for(let m=0;m<12;m++){const yr=new Date().getFullYear();periodOptions.push(`${yr}-${String(m+1).padStart(2,"0")}`);}
+  const printGSTR1=()=>{const w=window.open("","_blank");w.document.write(`<html><head><title>GSTR-1</title><style>body{font-family:Arial;margin:20px;font-size:11px;}table{width:100%;border-collapse:collapse;margin:10px 0;}th,td{border:1px solid #000;padding:6px;}th{background:#ddd;}</style></head><body><h2>FORM GSTR-1 — ${period}</h2>${document.getElementById("gstr1-body")?.innerHTML||""}</body></html>`);w.document.close();w.print();};
+  return(<div>
+    <div style={{display:"flex",gap:10,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+      <span style={{fontSize:13,fontWeight:600,color:"#E6EDF3"}}>GSTR-1 — Outward Supplies Return</span>
+      <select style={{...S.select,width:"auto"}} value={period} onChange={e=>setPeriod(e.target.value)}>{periodOptions.map(p=>{const[y,m]=p.split("-");return<option key={p} value={p}>{MONTHS[parseInt(m)-1]} {y}</option>;})}</select>
+      <button onClick={load} style={S.btn}>{loading?"Loading...":"Auto-Fill from Invoices"}</button>
+      {data&&<button onClick={printGSTR1} style={S.btnG}>🖨 Print</button>}
+    </div>
+    {loading&&<Spinner/>}
+    {data&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>{[{l:"Total Invoices",v:data.summary.total_invoices,c:"#58a6ff"},{l:"B2B (GST Registered)",v:data.summary.b2b_count,c:"#e3b341"},{l:"B2C (Unregistered)",v:data.summary.b2c_count,c:"#bf91f3"},{l:"Total Tax",v:fR(data.summary.total_tax),c:"#f85149"}].map(k=>(<div key={k.l} style={{...S.kpi,textAlign:"center"}}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l.includes("Tax")?13:22,fontWeight:700,color:k.c}}>{k.v}</div></div>))}</div>}
+    {data&&<div style={{display:"flex",gap:4,marginBottom:12}}>{[{k:"b2b",l:"B2B Invoices"},{k:"b2c",l:"B2C Summary"},{k:"hsn",l:"HSN Summary"}].map(t=>(<button key={t.k} onClick={()=>setTab(t.k)} style={{padding:"6px 14px",borderRadius:8,border:"1px solid",cursor:"pointer",fontFamily:"inherit",fontSize:12,borderColor:tab===t.k?"#1F6FEB":"#30363D",background:tab===t.k?"#0c1d2e":"transparent",color:tab===t.k?"#58a6ff":"#8B949E",fontWeight:tab===t.k?600:400}}>{t.l}</button>))}</div>}
+    <div id="gstr1-body">
+      {data&&tab==="b2b"&&(<div style={S.card}><div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:10}}>B2B — Supplies to Registered Persons</div><table style={S.tbl}><thead><tr>{["Invoice No","Date","Receiver GSTIN","Receiver Name","Taxable","IGST","CGST","SGST","Total"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{data.b2b.map(inv=>(<tr key={inv.id}><td style={{...S.td,color:"#58a6ff"}}>{inv.invoice_no}</td><td style={S.td}>{inv.invoice_date}</td><td style={S.td}><span style={S.mono}>{inv.party_gstin}</span></td><td style={{...S.td,fontWeight:500,color:"#E6EDF3"}}>{inv.party_name}</td><td style={S.td}>{fR(inv.taxable_amount)}</td><td style={S.td}>{fR(inv.igst_amount)}</td><td style={S.td}>{fR(inv.cgst_amount)}</td><td style={S.td}>{fR(inv.sgst_amount)}</td><td style={{...S.tdL,fontWeight:700,color:"#3fb950"}}>{fR(inv.total_amount)}</td></tr>))}{!data.b2b.length&&<tr><td colSpan={9} style={{...S.td,textAlign:"center",color:"#8B949E",padding:20}}>No B2B invoices for this period</td></tr>}</tbody></table></div>)}
+      {data&&tab==="b2c"&&(<div style={S.card}><div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:10}}>B2C — Supplies to Unregistered Persons</div><table style={S.tbl}><thead><tr>{["Invoice No","Date","Party Name","Taxable","IGST","CGST","SGST","Total"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{data.b2c.map(inv=>(<tr key={inv.id}><td style={{...S.td,color:"#58a6ff"}}>{inv.invoice_no}</td><td style={S.td}>{inv.invoice_date}</td><td style={{...S.td,fontWeight:500,color:"#E6EDF3"}}>{inv.party_name}</td><td style={S.td}>{fR(inv.taxable_amount)}</td><td style={S.td}>{fR(inv.igst_amount)}</td><td style={S.td}>{fR(inv.cgst_amount)}</td><td style={S.td}>{fR(inv.sgst_amount)}</td><td style={{...S.tdL,fontWeight:700,color:"#3fb950"}}>{fR(inv.total_amount)}</td></tr>))}{!data.b2c.length&&<tr><td colSpan={8} style={{...S.td,textAlign:"center",color:"#8B949E",padding:20}}>No B2C invoices</td></tr>}</tbody></table></div>)}
+      {data&&tab==="hsn"&&(<div style={S.card}><div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:10}}>HSN-wise Summary</div><table style={S.tbl}><thead><tr>{["HSN/SAC","UQC","Total Qty","Total Value","Taxable","IGST","CGST","SGST"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{data.hsn_summary.map((h,i)=>(<tr key={i}><td style={{...S.td,fontWeight:600}}>{h.hsn_sc}</td><td style={S.td}>{h.uqc}</td><td style={S.td}>{h.total_qty.toFixed(2)}</td><td style={S.td}>{fR(h.total_val)}</td><td style={S.td}>{fR(h.taxable_val)}</td><td style={S.td}>{fR(h.igst)}</td><td style={S.td}>{fR(h.cgst)}</td><td style={{...S.tdL,fontWeight:700,color:"#e3b341"}}>{fR(h.sgst)}</td></tr>))}{!data.hsn_summary.length&&<tr><td colSpan={8} style={{...S.td,textAlign:"center",color:"#8B949E",padding:20}}>No HSN data</td></tr>}</tbody></table></div>)}
+    </div>
+    {!data&&<div style={{...S.card,textAlign:"center",padding:40}}><div style={{fontSize:40,marginBottom:12}}>📤</div><div style={{fontSize:14,fontWeight:600,color:"#E6EDF3",marginBottom:8}}>GSTR-1 Auto-Fill</div><div style={{color:"#8B949E",fontSize:13}}>Select period and click "Auto-Fill" to generate GSTR-1 from your Sales Invoices.</div></div>}
+  </div>);
+}
+
+// ── E-INVOICE ────────────────────────────────────────────────────
+function EInvoice({token,toast}){
+  const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);const[generating,setGenerating]=useState(null);const[result,setResult]=useState(null);const[search,setSearch]=useState("");
+  const load=useCallback(()=>{setLoading(true);api("/einvoice","GET",null,token).then(d=>{setInvoices(d.invoices||[]);setLoading(false);}).catch(()=>setLoading(false));},[token]);
+  useEffect(()=>{load();},[load]);
+  const generate=async id=>{setGenerating(id);try{const d=await api("/einvoice/generate","POST",{invoice_id:id},token);setResult(d);toast("E-Invoice Generated!","success");load();}catch(e){toast(e.message,"error");}setGenerating(null);};
+  const fR=n=>`Rs.${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
+  const filtered=invoices.filter(i=>i.party_name.toLowerCase().includes(search.toLowerCase())||i.invoice_no.toLowerCase().includes(search.toLowerCase()));
+  return(<div>
+    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:600,color:"#58a6ff",marginBottom:8}}>📋 About E-Invoice</div>
+      <div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.8}}>• Mandatory for businesses with turnover &gt; Rs.5 Crore<br/>• IRN (Invoice Reference Number) generated from NIC portal<br/>• QR code printed on invoice<br/>• Select invoice below to generate IRN</div>
+    </div>
+    {result&&(<div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#3fb950",marginBottom:10}}>✅ E-Invoice Generated!</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:12}}>
+        {[["IRN",result.irn],["Ack No",result.ack_no],["Ack Date",result.ack_date],["Invoice",result.invoice_no]].map(([l,v])=>(<div key={l}><span style={{color:"#8B949E"}}>{l}: </span><span style={{color:"#E6EDF3",fontWeight:600,fontFamily:"monospace",fontSize:11}}>{v}</span></div>))}
+      </div>
+      <button onClick={()=>setResult(null)} style={{...S.btnGhost,marginTop:10,fontSize:11}}>Dismiss</button>
+    </div>)}
+    <div style={{display:"flex",gap:10,marginBottom:12,alignItems:"center"}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search invoices..." style={{...S.input,width:280}}/><span style={{color:"#8B949E",fontSize:12}}>Showing sales invoices (GSTIN parties preferred)</span></div>
+    {loading?<Spinner/>:(<div style={S.card}><table style={S.tbl}><thead><tr>{["Invoice No","Date","Party","GSTIN","Amount","IRN Status","Action"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{filtered.map(inv=>(<tr key={inv.id}><td style={{...S.td,color:"#58a6ff",fontWeight:600}}>{inv.invoice_no}</td><td style={S.td}>{inv.invoice_date}</td><td style={{...S.td,fontWeight:500,color:"#E6EDF3"}}>{inv.party_name}</td><td style={S.td}><span style={S.mono}>{inv.party_gstin||"—"}</span></td><td style={{...S.td,fontWeight:600}}>{fR(inv.total_amount)}</td><td style={S.td}>{inv.einvoice_irn?<div>{badge("IRN Generated","green")}<div style={{...S.mono,fontSize:9,marginTop:2}}>{inv.einvoice_irn.substring(0,20)}...</div></div>:badge("Not Generated","gray")}</td><td style={S.tdL}>{!inv.einvoice_irn?<button onClick={()=>generate(inv.id)} disabled={generating===inv.id} style={{...S.btn,fontSize:11,padding:"5px 12px",opacity:generating===inv.id?0.5:1}}>{generating===inv.id?"Generating...":"Generate IRN"}</button>:<button onClick={()=>toast("IRN: "+inv.einvoice_irn,"success")} style={{...S.btnGhost,fontSize:11,padding:"5px 10px"}}>View IRN</button>}</td></tr>))}{!filtered.length&&<tr><td colSpan={7} style={{...S.td,textAlign:"center",color:"#8B949E",padding:20}}>No invoices found</td></tr>}</tbody></table></div>)}
+  </div>);
+}
+
+// ── E-WAY BILL ──────────────────────────────────────────────────────
+function EWayBill({token,toast}){
+  const[invoices,setInvoices]=useState([]);const[form,setForm]=useState({invoice_id:"",transporter_name:"",transporter_id:"",vehicle_no:"",vehicle_type:"Regular",distance:"100",supply_type:"Outward",sub_type:"Supply",doc_type:"Invoice",from_place:"",from_state:"",to_place:"",to_state:""});
+  const[result,setResult]=useState(null);const[saving,setSaving]=useState(false);
+  const STATES=["Delhi","Maharashtra","Gujarat","Uttar Pradesh","Rajasthan","Karnataka","Tamil Nadu","West Bengal","Madhya Pradesh","Andhra Pradesh","Telangana","Kerala","Punjab","Haryana","Bihar","Odisha","Uttarakhand","Goa","Other"];
+  useEffect(()=>{api("/einvoice","GET",null,token).then(d=>setInvoices(d.invoices||[]));},[token]);
+  const generate=async()=>{if(!form.invoice_id)return toast("Select invoice","error");setSaving(true);try{const d=await api("/ewaybill/generate","POST",form,token);setResult(d);toast("E-Way Bill Generated!","success");}catch(e){toast(e.message,"error");}setSaving(false);};
+  const printEWB=()=>{const inv=invoices.find(i=>i.id===form.invoice_id);const w=window.open("","_blank");w.document.write(`<html><head><title>E-Way Bill</title><style>body{font-family:Arial;margin:20px;font-size:12px;}table{width:100%;border-collapse:collapse;}td{border:1px solid #ccc;padding:7px;}.title{background:#1F6FEB;color:white;font-size:16px;font-weight:bold;padding:10px;text-align:center;}.section{background:#eee;font-weight:bold;padding:6px;}</style></head><body><div class="title">E-WAY BILL</div><br><table><tr><td><b>EWB No:</b> ${result?.ewb_no}</td><td><b>Valid Till:</b> ${result?.valid_till}</td><td><b>Generated:</b> ${new Date().toLocaleDateString("en-IN")}</td></tr></table><br><div class="section">Supply Details</div><table><tr><td><b>Invoice No:</b> ${inv?.invoice_no}</td><td><b>Invoice Date:</b> ${inv?.invoice_date}</td><td><b>Invoice Value:</b> Rs.${Number(inv?.total_amount||0).toLocaleString("en-IN")}</td></tr><tr><td><b>Supply Type:</b> ${form.supply_type}</td><td><b>Sub-Type:</b> ${form.sub_type}</td><td><b>Transporter:</b> ${result?.transporter_name}</td></tr></table><br><div class="section">Party Details</div><table><tr><td><b>From:</b> ${form.from_place}, ${form.from_state}</td><td><b>To:</b> ${form.to_place}, ${form.to_state}</td></tr><tr><td><b>Consignor:</b> (Your Firm)</td><td><b>Consignee:</b> ${inv?.party_name}</td></tr></table><br><div class="section">Transportation Details</div><table><tr><td><b>Vehicle No:</b> ${result?.vehicle_no||"—"}</td><td><b>Distance (km):</b> ${result?.distance}</td><td><b>Vehicle Type:</b> ${form.vehicle_type}</td></tr></table></body></html>`);w.document.close();w.print();};
+  return(<div>
+    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}><div style={{fontSize:13,fontWeight:600,color:"#58a6ff",marginBottom:6}}>📦 About E-Way Bill</div><div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.8}}>• Required for goods movement &gt; Rs.50,000<br/>• Valid for 1 day per 100 km (minimum 1 day)<br/>• Fill invoice details, transporter and vehicle info below</div></div>
+    {result&&(<div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:14}}><div style={{fontSize:13,fontWeight:700,color:"#3fb950",marginBottom:10}}>✅ E-Way Bill Generated!</div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:10}}>{[{l:"EWB Number",v:result.ewb_no,c:"#58a6ff"},{l:"Valid Till",v:result.valid_till,c:"#e3b341"},{l:"Distance",v:`${result.distance} km`,c:"#8B949E"},{l:"Transporter",v:result.transporter_name,c:"#C9D1D9"}].map(k=>(<div key={k.l} style={{textAlign:"center"}}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:12,fontWeight:700,color:k.c}}>{k.v}</div></div>))}</div><button onClick={printEWB} style={S.btnG}>🖨 Print E-Way Bill</button><button onClick={()=>setResult(null)} style={{...S.btnGhost,marginLeft:8,fontSize:11}}>New</button></div>)}
+    <div style={S.twoCol}>
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:12}}>Supply Details</div>
+        <div style={S.fg}><label style={S.label}>Select Invoice *</label><select style={S.select} value={form.invoice_id} onChange={e=>setForm(p=>({...p,invoice_id:e.target.value}))}><option value="">Select</option>{invoices.map(i=><option key={i.id} value={i.id}>{i.invoice_no} — {i.party_name}</option>)}</select></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={S.fg}><label style={S.label}>Supply Type</label><select style={S.select} value={form.supply_type} onChange={e=>setForm(p=>({...p,supply_type:e.target.value}))}>{["Outward","Inward"].map(t=><option key={t}>{t}</option>)}</select></div>
+          <div style={S.fg}><label style={S.label}>Sub Type</label><select style={S.select} value={form.sub_type} onChange={e=>setForm(p=>({...p,sub_type:e.target.value}))}>{["Supply","Export","Job Work","For Own Use","Recipient Not Known","Others"].map(t=><option key={t}>{t}</option>)}</select></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={S.fg}><label style={S.label}>From Place</label><input style={S.input} placeholder="City" value={form.from_place} onChange={e=>setForm(p=>({...p,from_place:e.target.value}))}/></div>
+          <div style={S.fg}><label style={S.label}>From State</label><select style={S.select} value={form.from_state} onChange={e=>setForm(p=>({...p,from_state:e.target.value}))}><option value="">Select</option>{STATES.map(s=><option key={s}>{s}</option>)}</select></div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={S.fg}><label style={S.label}>To Place</label><input style={S.input} placeholder="City" value={form.to_place} onChange={e=>setForm(p=>({...p,to_place:e.target.value}))}/></div>
+          <div style={S.fg}><label style={S.label}>To State</label><select style={S.select} value={form.to_state} onChange={e=>setForm(p=>({...p,to_state:e.target.value}))}><option value="">Select</option>{STATES.map(s=><option key={s}>{s}</option>)}</select></div>
+        </div>
+      </div>
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:12}}>Transporter & Vehicle Details</div>
+        <div style={S.fg}><label style={S.label}>Transporter Name</label><input style={S.input} placeholder="Transport Co. or Self" value={form.transporter_name} onChange={e=>setForm(p=>({...p,transporter_name:e.target.value}))}/></div>
+        <div style={S.fg}><label style={S.label}>Transporter ID / GSTIN</label><input style={S.input} placeholder="GSTIN of transporter" value={form.transporter_id} onChange={e=>setForm(p=>({...p,transporter_id:e.target.value}))}/></div>
+        <div style={S.fg}><label style={S.label}>Vehicle Number</label><input style={S.input} placeholder="UP14AB1234" value={form.vehicle_no} onChange={e=>setForm(p=>({...p,vehicle_no:e.target.value.toUpperCase()}))}/></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={S.fg}><label style={S.label}>Vehicle Type</label><select style={S.select} value={form.vehicle_type} onChange={e=>setForm(p=>({...p,vehicle_type:e.target.value}))}>{["Regular","Over Dimensional Cargo"].map(t=><option key={t}>{t}</option>)}</select></div>
+          <div style={S.fg}><label style={S.label}>Approx Distance (km)</label><input style={S.input} type="number" value={form.distance} onChange={e=>setForm(p=>({...p,distance:e.target.value}))}/></div>
+        </div>
+        <button onClick={generate} disabled={saving||!form.invoice_id} style={{...S.btnG,width:"100%",marginTop:8,opacity:saving||!form.invoice_id?0.5:1}}>{saving?"Generating...":"Generate E-Way Bill"}</button>
+      </div>
+    </div>
+  </div>);
+}
 // ── NAVIGATION ──────────────────────────────────────────────────────────────
 const NAV=[
   {key:"dashboard",   icon:"🏠",label:"Dashboard",          group:"MAIN"},
-  {key:"sales",       icon:"📄",label:"Sales Invoices",      group:"ACCOUNTING"},
-  {key:"purchases",   icon:"🧾",label:"Purchase Bills",      group:"ACCOUNTING"},
-  {key:"parties",     icon:"👥",label:"Parties",             group:"ACCOUNTING"},
-  {key:"products",    icon:"📦",label:"Products & Stock",    group:"ACCOUNTING"},
-  {key:"bank",        icon:"🏦",label:"Bank Statement",      group:"ACCOUNTING"},
-  {key:"reports",     icon:"📈",label:"Reports",             group:"ACCOUNTING"},
-  {key:"gst-clients", icon:"🏢",label:"GST Clients",         group:"GST"},
-  {key:"notices",     icon:"🔔",label:"Notice Manager",      group:"GST"},
-  {key:"returns",     icon:"📋",label:"Return Tracker",      group:"GST"},
-  {key:"reconcile",   icon:"⇄", label:"Reconciliation",      group:"GST"},
-  {key:"gstr2a",      icon:"📥",label:"GSTR-2A Import",      group:"GST"},
+  {key:"sales",       icon:"📄",label:"Sales Invoices",     group:"ACCOUNTING"},
+  {key:"purchases",   icon:"🧾",label:"Purchase Bills",     group:"ACCOUNTING"},
+  {key:"parties",     icon:"👥",label:"Parties",            group:"ACCOUNTING"},
+  {key:"products",    icon:"📦",label:"Products & Stock",   group:"ACCOUNTING"},
+  {key:"bank",        icon:"🏦",label:"Bank Statement",     group:"ACCOUNTING"},
+  {key:"reports",     icon:"📈",label:"Reports",            group:"ACCOUNTING"},
+  {key:"gst-clients", icon:"🏢",label:"GST Clients",        group:"GST"},
+  {key:"notices",     icon:"🔔",label:"Notice Manager",     group:"GST"},
+  {key:"returns",     icon:"📋",label:"Return Tracker",     group:"GST"},
+  {key:"reconcile",   icon:"⇄", label:"Reconciliation",     group:"GST"},
+  {key:"gstr2a",      icon:"📥",label:"GSTR-2A Import",     group:"GST"},
   {key:"acc-companies",icon:"🏗",label:"Companies",          group:"TALLY"},
   {key:"acc-groups",  icon:"🗂",label:"Chart of Accounts",   group:"TALLY"},
   {key:"acc-ledgers", icon:"📒",label:"Ledgers",             group:"TALLY"},
-  {key:"acc-vouchers",icon:"✏",label:"Voucher Entry",        group:"TALLY"},
+  {key:"acc-vouchers",icon:"✏",label:"Voucher Entry",       group:"TALLY"},
   {key:"acc-reports", icon:"📊",label:"Accounting Reports",  group:"TALLY"},
   {key:"calculator",  icon:"🧮",label:"GST Calculator",      group:"TOOLS"},
   {key:"calendar",    icon:"📅",label:"Due Date Calendar",   group:"TOOLS"},
-  {key:"reply",       icon:"✍", label:"Notice Reply AI",     group:"TOOLS"},
+  {key:"reply",       icon:"✍", label:"Notice Reply AI",    group:"TOOLS"},
   {key:"ai",          icon:"✦", label:"AI Assistant",        group:"TOOLS"},
+  {key:"gstr3b",   icon:"📑", label:"GSTR-3B",    group:"GST FILING"},
+  {key:"gstr1",    icon:"📤", label:"GSTR-1",      group:"GST FILING"},
+  {key:"einvoice", icon:"🔖", label:"E-Invoice",   group:"GST FILING"},
+  {key:"ewaybill", icon:"🚛", label:"E-Way Bill",  group:"GST FILING"},
+  {key:"settings", icon:"⚙️",  label:"Settings",    group:"ACCOUNT"},
 ];
 
 const TITLES={
   dashboard:"Dashboard",sales:"Sales Invoices",purchases:"Purchase Bills",parties:"Parties & Customers",products:"Products & Stock",bank:"Bank Statement Import",reports:"Reports & Analytics",
   "gst-clients":"GST Clients",notices:"Notice Manager",returns:"Return Filing Tracker",reconcile:"GST Reconciliation",gstr2a:"GSTR-2A Import",
   "acc-companies":"Companies",  "acc-groups":"Chart of Accounts","acc-ledgers":"Ledger Manager","acc-vouchers":"Voucher Entry (F4-F9)","acc-reports":"Accounting Reports",
-  calculator:"GST Calculator",calendar:"Compliance Calendar",reply:"Notice Reply Generator",ai:"AI Assistant"
+  calculator:"GST Calculator",calendar:"Compliance Calendar",reply:"Notice Reply Generator",ai:"AI Assistant",gstr3b:"GSTR-3B Summary Return",
+gstr1:"GSTR-1 Outward Supplies",
+einvoice:"E-Invoice Generation",
+ewaybill:"E-Way Bill",
+settings:"Settings",
 };
 
 // ── APP SHELL ───────────────────────────────────────────────────────────────
@@ -716,7 +918,9 @@ export default function App(){
   const[view,setView]    =useState("dashboard");
   const[toast,setToast]  =useState(null);
   const[collapsed,setCollapsed]=useState(false);
-
+  const [accentColor, setAccentColor] = useState(
+  localStorage.getItem("taxpro_accent") || "#1F6FEB"
+);
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),4000);};
   const logout=()=>{localStorage.removeItem("taxpro_token");localStorage.removeItem("taxpro_user");localStorage.removeItem("taxpro_company");setUser(null);setToken("");};
   const onAuth=(u,t)=>{setUser(u);setToken(t);};
@@ -780,6 +984,14 @@ export default function App(){
         {view==="calendar"     &&<ComplianceCalendar/>}
         {view==="reply"        &&<NoticeReply        token={token}/>}
         {view==="ai"           &&<AIAssistant        token={token}/>}
+        {view==="gstr3b"   && <GSTR3B    token={token} toast={showToast}/>}
+        {view==="gstr1"    && <GSTR1     token={token} toast={showToast}/>}
+        {view==="einvoice" && <EInvoice  token={token} toast={showToast}/>}
+        {view==="ewaybill" && <EWayBill  token={token} toast={showToast}/>}
+        {view==="settings" && <Settings  token={token} user={user} toast={showToast}
+                         onLogout={logout}
+                         accentColor={accentColor}
+                         setAccentColor={setAccentColor}/>}
       </div>
     </div>
     {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
