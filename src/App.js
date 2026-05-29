@@ -380,7 +380,20 @@ function Products({token,toast}){
   const UNITS=["PCS","KG","LTR","MTR","BOX","NOS","SET","DZ","PACK","TON"];
   const load=useCallback(()=>{setLoading(true);api(`/products${search?`?search=${encodeURIComponent(search)}`:""}`, "GET",null,token).then(d=>{setProducts(d.products||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,search]);
   useEffect(()=>{load();},[load]);
-  const save=async()=>{if(!form.name)return toast("Name required","error");setSaving(true);try{if(editing){await api(`/products/${editing.id}`,"PUT",form,token);toast("Updated","success");}else{await api("/products","POST",form,token);toast("Added","success");}setShowModal(false);load();}catch(e){toast(e.message,"error");}setSaving(false);};
+  const save=async()=>{if(!form.name)return toast("Name required","error");setSaving(true);const safeNumber = v => {
+    const n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  };
+  const payload = {
+    ...form,
+    gst_rate: safeNumber(form.gst_rate),
+    purchase_price: safeNumber(form.purchase_price),
+    sale_price: safeNumber(form.sale_price),
+    stock_qty: safeNumber(form.stock_qty),
+    min_stock: safeNumber(form.min_stock),
+    is_service: !!form.is_service 
+  };console.log("Payload being sent:", payload);
+try{if(editing){await api(`/products/${editing.id}`,"PUT",payload,token);toast("Updated","success");}else{await api("/products","POST",payload,token);toast("Added","success");}setShowModal(false);load();}catch(e){toast(e.message,"error");}setSaving(false);};
   const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/products/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
   const adjustStock=async()=>{try{await api(`/products/${stockModal.id}/stock`,"POST",stockForm,token);toast("Stock updated","success");setStockModal(null);load();}catch(e){toast(e.message,"error");}};
   return(<div>
