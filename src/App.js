@@ -79,6 +79,78 @@ const Modal = ({title,onClose,children,wide}) => (
   </div>
 );
 
+
+// ── GSTIN INPUT COMPONENT with validation + auto-populate ─────────────────
+function GSTINInput({value,onChange,token,onVerified,disabled}){
+  const[status,setStatus]=useState(null); // null | "checking" | "valid" | "invalid"
+  const[msg,setMsg]=useState("");
+  const inputRef=useRef(null);
+
+  const verify=async(gstin)=>{
+    if(!gstin||gstin.length<15){setStatus(null);setMsg("");return;}
+    if(gstin.length!==15){setStatus("invalid");setMsg("GSTIN must be exactly 15 characters");return;}
+    setStatus("checking");setMsg("Verifying...");
+    try{
+      const data=await api(`/gstin/lookup/${gstin}`,"GET",null,token);
+      if(data.valid){
+        setStatus("valid");
+        setMsg(data.message||"✅ Valid GSTIN");
+        if(onVerified)onVerified({
+          gstin:data.gstin,
+          state:data.state,
+          state_code:data.state_code,
+          pan:data.pan,
+          business_name:data.business_name||"",
+          address:data.address||"",
+          city:data.city||"",
+          pincode:data.pincode||"",
+          entity_type:data.entity_type||""
+        });
+      }else{
+        setStatus("invalid");
+        setMsg(data.message||"❌ Invalid GSTIN");
+        if(onVerified)onVerified(null);
+      }
+    }catch(e){
+      setStatus("invalid");
+      setMsg("Verification failed. Check connection.");
+      if(onVerified)onVerified(null);
+    }
+  };
+
+  const handleChange=e=>{
+    const val=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").substring(0,15);
+    onChange(val);
+    setStatus(null);setMsg("");
+    if(val.length===15)verify(val);
+  };
+
+  const borderColor=status==="valid"?"#238636":status==="invalid"?"#c0392b":"#30363D";
+  const bgColor=status==="valid"?"#0a1a0a":status==="invalid"?"#1a0a0a":"#0D1117";
+
+  return(<div>
+    <div style={{position:"relative"}}>
+      <input
+        ref={inputRef}
+        style={{...S.input,border:`1px solid ${borderColor}`,background:bgColor,paddingRight:40,letterSpacing:1,fontFamily:"monospace",fontSize:13,textTransform:"uppercase"}}
+        placeholder="e.g. 29AABCS1429B1Z5"
+        value={value}
+        onChange={handleChange}
+        disabled={disabled}
+        maxLength={15}
+      />
+      <div style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:16}}>
+        {status==="checking"&&<span style={{color:"#e3b341"}}>⏳</span>}
+        {status==="valid"&&<span style={{color:"#3fb950"}}>✅</span>}
+        {status==="invalid"&&<span style={{color:"#f85149"}}>❌</span>}
+        {!status&&value.length===15&&<span style={{color:"#8B949E",cursor:"pointer"}} onClick={()=>verify(value)}>🔍</span>}
+      </div>
+    </div>
+    {msg&&<div style={{fontSize:11,marginTop:4,color:status==="valid"?"#3fb950":status==="invalid"?"#f85149":"#e3b341",padding:"4px 8px",borderRadius:6,background:status==="valid"?"#0a1a0a":status==="invalid"?"#1a0a0a":"#1a1500"}}>{msg}</div>}
+    <div style={{fontSize:10,color:"#8B949E",marginTop:3}}>Enter 15-character GSTIN — auto-validates and fetches business details</div>
+  </div>);
+}
+
 function AuthScreen({onAuth}){
   const[tab,setTab]=useState("login");
   const[form,setForm]=useState({name:"",email:"",password:"",firm_name:"",frn:""});
@@ -461,7 +533,7 @@ function Parties({token,toast}){
         <div>
           <div style={S.fg}><label style={S.label}>Party Name *</label><input style={S.input} placeholder="Company or person name" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
           <div style={S.fg}><label style={S.label}>Type</label><select style={S.select} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))}>{["Customer","Supplier","Both","Sundry Debtors","Sundry Creditors"].map(t=><option key={t}>{t}</option>)}</select></div>
-          <div style={S.fg}><label style={S.label}>GSTIN</label><input style={S.input} placeholder="15 char GSTIN" value={form.gstin} onChange={e=>setForm(p=>({...p,gstin:e.target.value.toUpperCase()}))}/></div>
+          <div style={S.fg}><label style={S.label}>GSTIN</label><GSTINInput value={form.gstin} onChange={v=>setForm(p=>({...p,gstin:v}))} token={token} onVerified={info=>{if(info){setForm(p=>({...p,gstin:info.gstin,state:info.state||p.state,address:p.address||info.address,city:p.city||info.city,pincode:p.pincode||info.pincode,name:p.name||info.business_name}));}}}/></div>
           <div style={S.fg}><label style={S.label}>PAN</label><input style={S.input} value={form.pan} onChange={e=>setForm(p=>({...p,pan:e.target.value.toUpperCase()}))}/></div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             <div style={S.fg}><label style={S.label}>Phone</label><input style={S.input} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></div>
@@ -736,7 +808,7 @@ function GSTClients({token,toast}){
       )}</div>
     )}
     {showModal&&(<Modal title={editing?"Edit GST Client":"Add GST Client"} onClose={()=>setShowModal(false)}>
-      {[{l:"Name *",k:"name",ph:"Sharma Textiles"},{l:"GSTIN *",k:"gstin",ph:"09AABCS1429B1Z7"},{l:"Turnover",k:"turnover",ph:"2.4 Cr"}].map(f=>(<div key={f.k} style={S.fg}><label style={S.label}>{f.l}</label><input style={S.input} placeholder={f.ph} value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))}/></div>))}
+      {[{l:"Name *",k:"name",ph:"Sharma Textiles"},{l:"GSTIN *",k:"gstin",ph:"09AABCS1429B1Z7"},{l:"Turnover",k:"turnover",ph:"2.4 Cr"}].map(f=>(<div key={f.k} style={S.fg}><label style={S.label}>{f.l}</label>{f.k==="gstin"?(<GSTINInput value={form[f.k]} onChange={v=>setForm(p=>({...p,gstin:v,state:p.state}))} token={token} onVerified={info=>{if(info)setForm(p=>({...p,gstin:info.gstin,state:info.state||p.state}));}}/>):(<input style={S.input} placeholder={f.ph} value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))}/>)}</div>))}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <div style={S.fg}><label style={S.label}>State</label><select style={S.select} value={form.state} onChange={e=>setForm(p=>({...p,state:e.target.value}))}><option value="">Select</option>{STATES.map(s=><option key={s}>{s}</option>)}</select></div>
         <div style={S.fg}><label style={S.label}>Type</label><select style={S.select} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))}>{["Manufacturer","Trader","Exporter","Importer","Service","Composition"].map(t=><option key={t}>{t}</option>)}</select></div>
