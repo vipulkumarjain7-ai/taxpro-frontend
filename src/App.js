@@ -151,6 +151,224 @@ function GSTINInput({value,onChange,token,onVerified,disabled}){
   </div>);
 }
 
+
+// ── HSN AUTOCOMPLETE INPUT ────────────────────────────────────────────────
+function HSNInput({value, onChange, onSelect, token, placeholder="Type HSN/SAC code..."}){
+  const[suggestions,setSuggestions]=useState([]);
+  const[show,setShow]=useState(false);
+  const[loading,setLoading]=useState(false);
+  const debounceRef=useRef(null);
+  const wrapRef=useRef(null);
+
+  useEffect(()=>{
+    const handler=e=>{if(wrapRef.current&&!wrapRef.current.contains(e.target))setShow(false);};
+    document.addEventListener("mousedown",handler);
+    return()=>document.removeEventListener("mousedown",handler);
+  },[]);
+
+  const search=async(q)=>{
+    if(!q||q.length<2){setSuggestions([]);setShow(false);return;}
+    setLoading(true);
+    try{
+      const d=await api(`/hsn/search?q=${encodeURIComponent(q)}&limit=8`,"GET",null,token);
+      setSuggestions(d.codes||[]);
+      setShow((d.codes||[]).length>0);
+    }catch(e){setSuggestions([]);}
+    setLoading(false);
+  };
+
+  const handleChange=e=>{
+    const v=e.target.value.replace(/[^0-9]/g,"").substring(0,8);
+    onChange(v);
+    clearTimeout(debounceRef.current);
+    debounceRef.current=setTimeout(()=>search(v),300);
+  };
+
+  const select=item=>{
+    onChange(item.code);
+    setShow(false);
+    if(onSelect)onSelect(item);
+  };
+
+  return(
+    <div ref={wrapRef} style={{position:"relative"}}>
+      <div style={{position:"relative"}}>
+        <input
+          style={{...S.input,paddingRight:30}}
+          placeholder={placeholder}
+          value={value}
+          onChange={handleChange}
+          onFocus={()=>{if(value.length>=2)search(value);}}
+          autoComplete="off"
+        />
+        {loading&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#8B949E"}}>⏳</span>}
+        {!loading&&value&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#8B949E",cursor:"pointer"}} onClick={()=>search(value)}>🔍</span>}
+      </div>
+      {show&&suggestions.length>0&&(
+        <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:999,background:"#161B22",border:"1px solid #30363D",borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,0.5)",maxHeight:260,overflowY:"auto",marginTop:2}}>
+          {suggestions.map((item,i)=>(
+            <div key={i} onClick={()=>select(item)}
+              style={{padding:"10px 12px",cursor:"pointer",borderBottom:"1px solid #21262D",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}
+              onMouseEnter={e=>e.currentTarget.style.background="#21262D"}
+              onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+            >
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"monospace",fontWeight:700,color:"#58a6ff",fontSize:13}}>{item.code}</div>
+                <div style={{fontSize:11,color:"#C9D1D9",marginTop:2,lineHeight:1.4}}>{item.description||"—"}</div>
+              </div>
+              <div style={{textAlign:"right",marginLeft:10,flexShrink:0}}>
+                {item.gst_rate>0&&<div style={{fontSize:11,fontWeight:700,color:"#e3b341"}}>GST {item.gst_rate}%</div>}
+                {item.uom&&<div style={{fontSize:10,color:"#8B949E"}}>{item.uom}</div>}
+              </div>
+            </div>
+          ))}
+          <div style={{padding:"6px 12px",fontSize:10,color:"#8B949E",textAlign:"center",borderTop:"1px solid #21262D"}}>
+            {suggestions.length} results — select to auto-fill
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── HSN MANAGER (Settings page tab) ─────────────────────────────────────
+function HSNManager({token,toast}){
+  const[codes,setCodes]=useState([]);const[total,setTotal]=useState(0);const[loading,setLoading]=useState(true);const[uploading,setUploading]=useState(false);const[search,setSearch]=useState("");const[page,setPage]=useState(1);const[file,setFile]=useState(null);const[showUpload,setShowUpload]=useState(false);const[uploadResult,setUploadResult]=useState(null);
+  const LIMIT=50;
+
+  const load=useCallback(()=>{
+    setLoading(true);
+    api(`/hsn/codes?page=${page}&limit=${LIMIT}${search?`&search=${encodeURIComponent(search)}`:""}`, "GET",null,token)
+      .then(d=>{setCodes(d.codes||[]);setTotal(d.total||0);setLoading(false);})
+      .catch(()=>setLoading(false));
+  },[token,page,search]);
+
+  useEffect(()=>{load();},[load]);
+
+  const upload=async()=>{
+    if(!file)return toast("Select a file first","error");
+    setUploading(true);setUploadResult(null);
+    try{
+      const fd=new FormData();
+      fd.append("file",file);
+      const res=await fetch(`${API}/hsn/upload`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
+      const data=await res.json();
+      if(data.success){setUploadResult(data);toast(data.message,"success");setFile(null);setShowUpload(false);load();}
+      else toast(data.message,"error");
+    }catch(e){toast("Upload failed","error");}
+    setUploading(false);
+  };
+
+  const deleteAll=async()=>{
+    if(!window.confirm(`Delete all ${total} HSN codes? This cannot be undone.`))return;
+    try{await api("/hsn/codes","DELETE",null,token);toast("All HSN codes deleted","success");load();}
+    catch(e){toast(e.message,"error");}
+  };
+
+  const totalPages=Math.ceil(total/LIMIT);
+
+  return(<div>
+    {/* Header */}
+    <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+      <div><div style={{fontSize:14,fontWeight:700,color:"#E6EDF3"}}>HSN/SAC Code Library</div><div style={{fontSize:11,color:"#8B949E",marginTop:2}}>{total.toLocaleString()} codes loaded</div></div>
+      <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+        {total>0&&<button onClick={deleteAll} style={{...S.btnDanger,fontSize:12}}>🗑 Clear All</button>}
+        <button onClick={()=>{setShowUpload(s=>!s);setUploadResult(null);}} style={S.btn}>📁 Upload HSN List</button>
+      </div>
+    </div>
+
+    {/* Upload Panel */}
+    {showUpload&&(
+      <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}>
+        <div style={{fontSize:13,fontWeight:600,color:"#58a6ff",marginBottom:12}}>Upload HSN/SAC Code List</div>
+        <div style={{...S.card,background:"#0D1117",marginBottom:12}}>
+          <div style={{fontSize:12,color:"#8B949E",lineHeight:1.9}}>
+            <div style={{color:"#e3b341",fontWeight:600,marginBottom:6}}>📋 Supported Excel Column Names:</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
+              <div><span style={{color:"#58a6ff"}}>HSN Code:</span> "HSN Code", "HSN", "Code", "HSN/SAC"</div>
+              <div><span style={{color:"#58a6ff"}}>Description:</span> "Description", "Desc", "Item Description"</div>
+              <div><span style={{color:"#58a6ff"}}>GST Rate:</span> "GST Rate", "GST", "Tax Rate", "Rate"</div>
+              <div><span style={{color:"#58a6ff"}}>Unit:</span> "UOM", "Unit", "UQC"</div>
+            </div>
+            <div style={{marginTop:8,color:"#8B949E"}}>Accepted formats: <b style={{color:"#E6EDF3"}}>.xlsx, .xls, .csv</b> | Any number of rows (lakhs of codes supported)</div>
+          </div>
+        </div>
+        <div style={{border:"2px dashed #30363D",borderRadius:10,padding:24,textAlign:"center",marginBottom:12,background:file?"#0d2818":"#0D1117",borderColor:file?"#238636":"#30363D"}}>
+          {file?(
+            <div><div style={{fontSize:24,marginBottom:6}}>📊</div><div style={{fontWeight:600,color:"#3fb950",fontSize:13}}>{file.name}</div><div style={{fontSize:11,color:"#8B949E",marginTop:4}}>{(file.size/1024).toFixed(1)} KB</div><button onClick={()=>setFile(null)} style={{...S.btnGhost,marginTop:10,fontSize:11}}>Remove</button></div>
+          ):(
+            <div><div style={{fontSize:36,marginBottom:8}}>📁</div><div style={{fontSize:13,color:"#C9D1D9",marginBottom:12}}>Drop your HSN Excel or CSV file here</div><label style={{...S.btn,cursor:"pointer",display:"inline-block"}}>Browse File<input type="file" accept=".xlsx,.xls,.csv" onChange={e=>setFile(e.target.files[0])} style={{display:"none"}}/></label></div>
+          )}
+        </div>
+        {uploadResult&&(
+          <div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:12}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#3fb950",marginBottom:8}}>✅ Upload Successful!</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+              {[{l:"Total Rows",v:uploadResult.total},{l:"New Codes",v:uploadResult.imported,c:"#3fb950"},{l:"Updated",v:uploadResult.updated,c:"#e3b341"},{l:"Skipped",v:uploadResult.skipped,c:"#8B949E"}].map(k=>(
+                <div key={k.l} style={{textAlign:"center"}}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:20,fontWeight:700,color:k.c||"#E6EDF3"}}>{k.v}</div></div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <button onClick={()=>{setShowUpload(false);setFile(null);}} style={S.btnGhost}>Cancel</button>
+          <button onClick={upload} disabled={!file||uploading} style={{...S.btnG,opacity:!file||uploading?0.5:1}}>{uploading?"Uploading...":"Upload & Import"}</button>
+        </div>
+      </div>
+    )}
+
+    {/* Sample Download Helper */}
+    {total===0&&!showUpload&&(
+      <div style={{...S.card,textAlign:"center",padding:40}}>
+        <div style={{fontSize:48,marginBottom:12}}>📊</div>
+        <div style={{fontSize:15,fontWeight:600,color:"#E6EDF3",marginBottom:8}}>No HSN Codes Loaded</div>
+        <div style={{color:"#8B949E",fontSize:13,marginBottom:20,maxWidth:400,margin:"0 auto 20px"}}>Upload your HSN code Excel file. Once loaded, typing any HSN code in Products or Invoices will auto-suggest from this list.</div>
+        <button onClick={()=>setShowUpload(true)} style={S.btn}>📁 Upload HSN List</button>
+        <div style={{marginTop:16,fontSize:12,color:"#8B949E"}}>
+          You can download the official HSN code list from{" "}
+          <a href="https://cbic-gst.gov.in" target="_blank" rel="noreferrer" style={{color:"#58a6ff"}}>cbic-gst.gov.in</a>
+        </div>
+      </div>
+    )}
+
+    {/* Search + Table */}
+    {total>0&&(
+      <div>
+        <div style={{display:"flex",gap:10,marginBottom:12,alignItems:"center"}}>
+          <input value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}} onKeyDown={e=>e.key==="Enter"&&load()} placeholder="Search HSN code or description..." style={{...S.input,width:320}}/>
+          <button onClick={()=>{setPage(1);load();}} style={S.btnGhost}>Search</button>
+          <span style={{color:"#8B949E",fontSize:12,marginLeft:"auto"}}>{total.toLocaleString()} total codes</span>
+        </div>
+        <div style={S.card}>
+          <table style={S.tbl}>
+            <thead><tr>{["HSN/SAC Code","Description","GST Rate","Unit","Chapter"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+            <tbody>
+              {loading?<tr><td colSpan={5} style={{...S.td,textAlign:"center",padding:30}}><Spinner/></td></tr>:
+              codes.map((c,i)=>(
+                <tr key={i}>
+                  <td style={{...S.td,fontFamily:"monospace",fontWeight:700,color:"#58a6ff",fontSize:13}}>{c.code}</td>
+                  <td style={{...S.td,maxWidth:300}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.description||"—"}</div></td>
+                  <td style={{...S.td,color:"#e3b341",fontWeight:600}}>{c.gst_rate>0?`${c.gst_rate}%`:"—"}</td>
+                  <td style={S.td}>{c.uom||"—"}</td>
+                  <td style={{...S.tdL,color:"#8B949E"}}>{c.chapter||c.code?.substring(0,2)||"—"}</td>
+                </tr>
+              ))}
+              {!loading&&codes.length===0&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:"#8B949E",padding:20}}>No codes found for "{search}"</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        {totalPages>1&&(
+          <div style={{display:"flex",gap:6,justifyContent:"center",marginTop:12,alignItems:"center"}}>
+            <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{...S.btnGhost,padding:"5px 12px",opacity:page===1?0.4:1}}>← Prev</button>
+            <span style={{color:"#8B949E",fontSize:12}}>Page {page} of {totalPages} ({total.toLocaleString()} codes)</span>
+            <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages} style={{...S.btnGhost,padding:"5px 12px",opacity:page===totalPages?0.4:1}}>Next →</button>
+          </div>
+        )}
+      </div>
+    )}
+  </div>);
+}
+
 function AuthScreen({onAuth}){
   const[tab,setTab]=useState("login");
   const[form,setForm]=useState({name:"",email:"",password:"",firm_name:"",frn:""});
@@ -235,6 +453,260 @@ function Dashboard({token}){
         </div>
       )}
     </div>
+  </div>);
+}
+
+function Parties({token,toast}){
+  const[parties,setParties]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showModal,setShowModal]=useState(false);const[editing,setEditing]=useState(null);const[saving,setSaving]=useState(false);const[ledger,setLedger]=useState(null);
+  const[form,setForm]=useState({name:"",gstin:"",state:"",type:"Customer",phone:"",email:"",address:"",city:"",pincode:"",pan:"",credit_limit:"0"});
+  const STATES=["Delhi","Maharashtra","Gujarat","Uttar Pradesh","Rajasthan","Karnataka","Tamil Nadu","West Bengal","Madhya Pradesh","Andhra Pradesh","Telangana","Kerala","Punjab","Haryana","Bihar","Odisha","Uttarakhand","Goa","Other"];
+  const load=useCallback(()=>{setLoading(true);api(`/parties${search?`?search=${encodeURIComponent(search)}`:""}`, "GET",null,token).then(d=>{setParties(d.parties||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,search]);
+  useEffect(()=>{load();},[load]);
+  const openAdd=()=>{setEditing(null);setForm({name:"",gstin:"",state:"",type:"Customer",phone:"",email:"",address:"",city:"",pincode:"",pan:"",credit_limit:"0"});setShowModal(true);};
+  const openEdit=p=>{setEditing(p);setForm({name:p.name,gstin:p.gstin||"",state:p.state||"",type:p.type||"Customer",phone:p.phone||"",email:p.email||"",address:p.address||"",city:p.city||"",pincode:p.pincode||"",pan:p.pan||"",credit_limit:String(p.credit_limit||0)});setShowModal(true);};
+  const save=async()=>{if(!form.name)return toast("Party name required","error");setSaving(true);try{if(editing){await api(`/parties/${editing.id}`,"PUT",form,token);toast("Updated","success");}else{await api("/parties","POST",form,token);toast("Party added","success");}setShowModal(false);load();}catch(e){toast(e.message,"error");}setSaving(false);};
+  const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/parties/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
+  const viewLedger=async id=>{try{const d=await api(`/parties/${id}/ledger`,"GET",null,token);setLedger(d);}catch(e){toast(e.message,"error");}};
+  return(<div>
+    <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()} placeholder="Search parties..." style={{...S.input,width:280}}/>
+      <button onClick={load} style={S.btnGhost}>Search</button>
+      <button onClick={openAdd} style={{...S.btn,marginLeft:"auto"}}>+ Add Party</button>
+    </div>
+    {loading?<Spinner/>:(
+      <div style={S.card}>{parties.length===0?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No parties yet.</div>:(
+        <table style={S.tbl}><thead><tr>{["Name","GSTIN","Type","Phone","City","Outstanding","Actions"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <tbody>{parties.map(p=>(
+          <tr key={p.id}>
+            <td style={{...S.td,fontWeight:600,color:"#58a6ff",cursor:"pointer"}} onClick={()=>viewLedger(p.id)}>{p.name}</td>
+            <td style={S.td}><span style={S.mono}>{p.gstin||"—"}</span></td>
+            <td style={S.td}>{badge(p.type,p.type==="Customer"?"green":"blue")}</td>
+            <td style={S.td}>{p.phone||"—"}</td>
+            <td style={S.td}>{p.city||"—"}</td>
+            <td style={{...S.td,color:parseFloat(p.outstanding||0)>0?"#e3b341":"#3fb950",fontWeight:600}}>{fmtM(p.outstanding||0)}</td>
+            <td style={S.tdL}><div style={{display:"flex",gap:4}}>
+              <button onClick={()=>viewLedger(p.id)} style={{...S.btnGhost,fontSize:11,padding:"4px 8px"}}>Ledger</button>
+              <button onClick={()=>openEdit(p)} style={{...S.btnGhost,fontSize:11,padding:"4px 8px"}}>Edit</button>
+              <button onClick={()=>del(p.id)} style={{...S.btnDanger,fontSize:11,padding:"4px 8px"}}>Del</button>
+            </div></td>
+          </tr>
+        ))}</tbody></table>
+      )}</div>
+    )}
+    {showModal&&(
+      <Modal title={editing?"Edit Party":"Add Party"} onClose={()=>setShowModal(false)} wide>
+        <div style={S.twoCol}>
+          <div>
+            <div style={S.fg}><label style={S.label}>Party Name *</label><input style={S.input} placeholder="Company or person name" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+            <div style={S.fg}><label style={S.label}>Type</label><select style={S.select} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))}>{["Customer","Supplier","Both","Sundry Debtors","Sundry Creditors"].map(t=><option key={t}>{t}</option>)}</select></div>
+            <div style={S.fg}><label style={S.label}>GSTIN</label><input style={S.input} placeholder="15 character GSTIN" value={form.gstin} onChange={e=>setForm(p=>({...p,gstin:e.target.value.toUpperCase()}))}/></div>
+            <div style={S.fg}><label style={S.label}>PAN</label><input style={S.input} value={form.pan} onChange={e=>setForm(p=>({...p,pan:e.target.value.toUpperCase()}))}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={S.fg}><label style={S.label}>Phone</label><input style={S.input} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></div>
+              <div style={S.fg}><label style={S.label}>Email</label><input style={S.input} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div>
+            </div>
+          </div>
+          <div>
+            <div style={S.fg}><label style={S.label}>Address</label><textarea style={{...S.input,resize:"vertical",minHeight:60}} value={form.address} onChange={e=>setForm(p=>({...p,address:e.target.value}))}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={S.fg}><label style={S.label}>City</label><input style={S.input} value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/></div>
+              <div style={S.fg}><label style={S.label}>Pincode</label><input style={S.input} value={form.pincode} onChange={e=>setForm(p=>({...p,pincode:e.target.value}))}/></div>
+            </div>
+            <div style={S.fg}><label style={S.label}>State</label><select style={S.select} value={form.state} onChange={e=>setForm(p=>({...p,state:e.target.value}))}><option value="">Select</option>{STATES.map(s=><option key={s}>{s}</option>)}</select></div>
+            <div style={S.fg}><label style={S.label}>Credit Limit (Rs.)</label><input style={S.input} type="number" value={form.credit_limit} onChange={e=>setForm(p=>({...p,credit_limit:e.target.value}))}/></div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setShowModal(false)} style={S.btnGhost}>Cancel</button><button onClick={save} disabled={saving} style={{...S.btn,opacity:saving?0.6:1}}>{saving?"Saving...":"Save"}</button></div>
+      </Modal>
+    )}
+    {ledger&&(
+      <Modal title={`Ledger — ${ledger.party?.name}`} onClose={()=>setLedger(null)} wide>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
+          {[{l:"Total Sales",v:fmtM(ledger.summary?.total_sales||0),c:"#3fb950"},{l:"Total Purchases",v:fmtM(ledger.summary?.total_purchases||0),c:"#58a6ff"},{l:"Outstanding",v:fmtM(ledger.summary?.outstanding||0),c:"#f85149"}].map(k=>(
+            <div key={k.l} style={S.kpi}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:15,fontWeight:700,color:k.c}}>{k.v}</div></div>
+          ))}
+        </div>
+        <table style={S.tbl}><thead><tr>{["Date","Invoice No","Type","Amount","Paid","Balance"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <tbody>{(ledger.invoices||[]).map(inv=>(
+          <tr key={inv.id}><td style={S.td}>{inv.invoice_date}</td><td style={{...S.td,color:"#58a6ff"}}>{inv.invoice_no}</td><td style={S.td}>{badge(inv.invoice_type,inv.invoice_type==="SALES"?"green":"blue")}</td><td style={{...S.td,fontWeight:600}}>{fmtM(inv.total_amount)}</td><td style={{...S.td,color:"#3fb950"}}>{fmtM(inv.paid_amount)}</td><td style={{...S.tdL,color:parseFloat(inv.balance_due||0)>0?"#f85149":"#3fb950",fontWeight:600}}>{fmtM(inv.balance_due)}</td></tr>
+        ))}{!ledger.invoices?.length&&<tr><td colSpan={6} style={{...S.td,textAlign:"center",color:"#8B949E",padding:20}}>No transactions</td></tr>}</tbody></table>
+      </Modal>
+    )}
+  </div>);
+}
+
+function InvoiceForm({token,toast,type,onClose,onSave}){
+  const[parties,setParties]=useState([]);const[products,setProducts]=useState([]);const[saving,setSaving]=useState(false);
+  const[form,setForm]=useState({invoice_type:type||"SALES",party_id:"",party_name:"",party_gstin:"",party_address:"",party_state:"",invoice_date:todayStr(),due_date:"",place_of_supply:"",is_igst:false,notes:"",terms:"Payment due within 30 days."});
+  const[items,setItems]=useState([{name:"",hsn_sac:"",unit:"PCS",qty:"1",rate:"0",discount_pct:"0",gst_rate:"18",product_id:""}]);
+  useEffect(()=>{Promise.all([api("/parties","GET",null,token).catch(()=>({parties:[]})),api("/products","GET",null,token).catch(()=>({products:[]}))]).then(([p,pr])=>{setParties(p.parties||[]);setProducts(pr.products||[]);});},[token]);
+  const selectParty=id=>{const p=parties.find(x=>x.id===id);if(p)setForm(f=>({...f,party_id:p.id,party_name:p.name,party_gstin:p.gstin||"",party_address:[p.address,p.city,p.state,p.pincode].filter(Boolean).join(", "),party_state:p.state||""}));};
+  const selectProduct=(idx,pid)=>{const p=products.find(x=>x.id===pid);if(p){const n=[...items];n[idx]={...n[idx],product_id:p.id,name:p.name,hsn_sac:p.hsn_sac||"",unit:p.unit||"PCS",rate:type==="SALES"?String(p.sale_price||0):String(p.purchase_price||0),gst_rate:String(p.gst_rate||18)};setItems(n);}};
+  const setItem=(i,k,v)=>{const n=[...items];n[i]={...n[i],[k]:v};setItems(n);};
+  const addItem=()=>setItems(p=>[...p,{name:"",hsn_sac:"",unit:"PCS",qty:"1",rate:"0",discount_pct:"0",gst_rate:"18",product_id:""}]);
+  const removeItem=i=>{if(items.length===1)return;setItems(p=>p.filter((_,idx)=>idx!==i));};
+  const calcItem=item=>{const qty=parseFloat(item.qty)||0,rate=parseFloat(item.rate)||0,disc=parseFloat(item.discount_pct)||0,gr=parseFloat(item.gst_rate)||0;const gross=qty*rate,ta=gross-gross*disc/100;const igst=form.is_igst?ta*gr/100:0,cgst=!form.is_igst?ta*(gr/2)/100:0,sgst=!form.is_igst?ta*(gr/2)/100:0;return{taxable:ta,igst,cgst,sgst,total:ta+igst+cgst+sgst};};
+  const totals=items.reduce((acc,item)=>{const c=calcItem(item);return{taxable:acc.taxable+c.taxable,igst:acc.igst+c.igst,cgst:acc.cgst+c.cgst,sgst:acc.sgst+c.sgst,total:acc.total+c.total};},{taxable:0,igst:0,cgst:0,sgst:0,total:0});
+  const save=async()=>{
+    if(!form.party_name)return toast("Party name required","error");
+    if(items.some(i=>!i.name))return toast("All items need a name","error");
+    setSaving(true);
+    try{await api("/invoices","POST",{...form,items:items.map(item=>{const c=calcItem(item);return{...item,...c};})},token);toast(`${type==="SALES"?"Invoice":"Bill"} created!`,"success");onSave();}
+    catch(e){toast(e.message,"error");}
+    setSaving(false);
+  };
+  return(
+    <Modal title={`New ${type==="SALES"?"Sales Invoice":"Purchase Bill"}`} onClose={onClose} wide>
+      <div style={S.twoCol}>
+        <div>
+          <div style={S.fg}><label style={S.label}>Select Party</label><select style={S.select} onChange={e=>selectParty(e.target.value)}><option value="">-- Select from list --</option>{parties.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+          <div style={S.fg}><label style={S.label}>Party Name *</label><input style={S.input} placeholder="Customer/Supplier name" value={form.party_name} onChange={e=>setForm(f=>({...f,party_name:e.target.value}))}/></div>
+          <div style={S.fg}><label style={S.label}>GSTIN</label><input style={S.input} value={form.party_gstin} onChange={e=>setForm(f=>({...f,party_gstin:e.target.value.toUpperCase()}))}/></div>
+          <div style={S.fg}><label style={S.label}>Address</label><textarea style={{...S.input,resize:"vertical",minHeight:50}} value={form.party_address} onChange={e=>setForm(f=>({...f,party_address:e.target.value}))}/></div>
+        </div>
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div style={S.fg}><label style={S.label}>Invoice Date *</label><input style={S.input} type="date" value={form.invoice_date} onChange={e=>setForm(f=>({...f,invoice_date:e.target.value}))}/></div>
+            <div style={S.fg}><label style={S.label}>Due Date</label><input style={S.input} type="date" value={form.due_date} onChange={e=>setForm(f=>({...f,due_date:e.target.value}))}/></div>
+          </div>
+          <div style={S.fg}><label style={S.label}>Place of Supply</label><input style={S.input} value={form.place_of_supply} onChange={e=>setForm(f=>({...f,place_of_supply:e.target.value}))}/></div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+            <input type="checkbox" id="isIgst" checked={form.is_igst} onChange={e=>setForm(f=>({...f,is_igst:e.target.checked}))}/>
+            <label htmlFor="isIgst" style={{...S.label,marginBottom:0,cursor:"pointer"}}>Inter-State (IGST)</label>
+          </div>
+          <div style={S.fg}><label style={S.label}>Notes</label><textarea style={{...S.input,resize:"vertical",minHeight:50}} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/></div>
+        </div>
+      </div>
+      <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:8}}>Items</div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{...S.tbl,minWidth:700}}>
+          <thead><tr>{["Product","HSN","Qty","Unit","Rate","Disc%","GST%","Amount",""].map(h=><th key={h} style={{...S.th,fontSize:10}}>{h}</th>)}</tr></thead>
+          <tbody>{items.map((item,i)=>{const c=calcItem(item);return(
+            <tr key={i}>
+              <td style={S.td}><select style={{...S.select,fontSize:11,marginBottom:4}} onChange={e=>selectProduct(i,e.target.value)}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><input style={{...S.input,fontSize:11}} placeholder="Item name *" value={item.name} onChange={e=>setItem(i,"name",e.target.value)}/></td>
+              <td style={S.td}><input style={{...S.input,width:70,fontSize:11}} value={item.hsn_sac} onChange={e=>setItem(i,"hsn_sac",e.target.value)}/></td>
+              <td style={S.td}><input style={{...S.input,width:60,fontSize:11}} type="number" value={item.qty} onChange={e=>setItem(i,"qty",e.target.value)}/></td>
+              <td style={S.td}><select style={{...S.select,fontSize:11,width:70}} value={item.unit} onChange={e=>setItem(i,"unit",e.target.value)}>{["PCS","KG","LTR","MTR","BOX","NOS"].map(u=><option key={u}>{u}</option>)}</select></td>
+              <td style={S.td}><input style={{...S.input,width:80,fontSize:11}} type="number" value={item.rate} onChange={e=>setItem(i,"rate",e.target.value)}/></td>
+              <td style={S.td}><input style={{...S.input,width:50,fontSize:11}} type="number" value={item.discount_pct} onChange={e=>setItem(i,"discount_pct",e.target.value)}/></td>
+              <td style={S.td}><select style={{...S.select,fontSize:11,width:70}} value={item.gst_rate} onChange={e=>setItem(i,"gst_rate",e.target.value)}>{["0","5","12","18","28"].map(r=><option key={r} value={r}>{r}%</option>)}</select></td>
+              <td style={{...S.td,fontWeight:600,color:"#3fb950"}}>{fmtM(c.total)}</td>
+              <td style={S.tdL}><button onClick={()=>removeItem(i)} style={{...S.btnDanger,padding:"3px 8px",fontSize:11}}>✕</button></td>
+            </tr>
+          );})}</tbody>
+        </table>
+      </div>
+      <button onClick={addItem} style={{...S.btnGhost,fontSize:12,marginTop:8,marginBottom:16}}>+ Add Item</button>
+      <div style={{display:"flex",justifyContent:"flex-end"}}>
+        <div style={{background:"#0D1117",borderRadius:8,padding:14,width:280}}>
+          {[["Taxable",totals.taxable],...(form.is_igst?[["IGST",totals.igst]]:[["CGST",totals.cgst],["SGST",totals.sgst]]),["Total Tax",totals.igst+totals.cgst+totals.sgst]].map(([l,v])=>(
+            <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #21262D"}}><span style={{color:"#8B949E",fontSize:12}}>{l}</span><span style={{color:"#C9D1D9",fontSize:12}}>{fmtM(v)}</span></div>
+          ))}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0"}}><span style={{color:"#E6EDF3",fontWeight:700}}>TOTAL</span><span style={{color:"#3fb950",fontWeight:700,fontSize:16}}>{fmtM(totals.total)}</span></div>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16}}>
+        <button onClick={onClose} style={S.btnGhost}>Cancel</button>
+        <button onClick={save} disabled={saving} style={{...S.btnG,opacity:saving?0.6:1}}>{saving?"Creating...":"Create "+(type==="SALES"?"Invoice":"Bill")}</button>
+      </div>
+    </Modal>
+  );
+}
+
+function InvoiceList({token,toast,type}){
+  const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showForm,setShowForm]=useState(false);const[viewing,setViewing]=useState(null);const[payModal,setPayModal]=useState(null);const[payForm,setPayForm]=useState({amount:"",method:"CASH",reference_no:"",payment_date:todayStr()});
+  const load=useCallback(()=>{setLoading(true);api(`/invoices?type=${type}${search?`&search=${encodeURIComponent(search)}`:""}`, "GET",null,token).then(d=>{setInvoices(d.invoices||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,type,search]);
+  useEffect(()=>{load();},[load]);
+  const del=async id=>{if(!window.confirm("Delete invoice?"))return;try{await api(`/invoices/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
+  const viewInv=async id=>{try{const d=await api(`/invoices/${id}`,"GET",null,token);setViewing(d.invoice);}catch(e){toast(e.message,"error");}};
+  const recordPayment=async()=>{try{await api(`/invoices/${payModal.id}/payment`,"POST",payForm,token);toast("Payment recorded","success");setPayModal(null);load();}catch(e){toast(e.message,"error");}};
+  const printInv=inv=>{
+    const w=window.open("","_blank");
+    w.document.write(`<!DOCTYPE html><html><head><title>${inv.invoice_no}</title><style>body{font-family:Arial;margin:20px;font-size:12px;}h1{color:#1F6FEB;font-size:18px;}table{width:100%;border-collapse:collapse;margin:10px 0;}th{background:#1F6FEB;color:white;padding:7px;text-align:left;}td{padding:6px;border-bottom:1px solid #eee;}.right{text-align:right;}.total-box{float:right;width:280px;background:#f8f9fa;padding:12px;border-radius:6px;}.total-row{display:flex;justify-content:space-between;padding:4px 0;}.grand{background:#1F6FEB;color:white;padding:8px;font-weight:bold;display:flex;justify-content:space-between;}</style></head><body>
+    <h1>🛡️ TaxPro GST — ${type==="SALES"?"TAX INVOICE":"PURCHASE BILL"}</h1>
+    <p><strong>Invoice No:</strong> ${inv.invoice_no} &nbsp;&nbsp; <strong>Date:</strong> ${inv.invoice_date} ${inv.due_date?`&nbsp;&nbsp; <strong>Due:</strong> ${inv.due_date}`:""}</p>
+    <p><strong>Bill To:</strong> ${inv.party_name} ${inv.party_gstin?`| GSTIN: ${inv.party_gstin}`:""}</p>
+    ${inv.party_address?`<p>${inv.party_address}</p>`:""}
+    <table><thead><tr><th>#</th><th>Item</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Taxable</th><th>GST%</th><th>Tax</th><th class="right">Total</th></tr></thead>
+    <tbody>${(inv.items||[]).map((it,i)=>`<tr><td>${i+1}</td><td><strong>${it.name}</strong></td><td>${it.hsn_sac||""}</td><td>${it.qty} ${it.unit}</td><td>${fmtM(it.rate)}</td><td>${fmtM(it.taxable_value)}</td><td>${it.gst_rate}%</td><td>${fmtM((it.igst_amount||0)+(it.cgst_amount||0)+(it.sgst_amount||0))}</td><td class="right"><strong>${fmtM(it.total_amount)}</strong></td></tr>`).join("")}</tbody></table>
+    <div class="total-box"><div class="total-row"><span>Taxable</span><span>${fmtM(inv.taxable_amount)}</span></div>${inv.is_igst?`<div class="total-row"><span>IGST</span><span>${fmtM(inv.igst_amount)}</span></div>`:`<div class="total-row"><span>CGST</span><span>${fmtM(inv.cgst_amount)}</span></div><div class="total-row"><span>SGST</span><span>${fmtM(inv.sgst_amount)}</span></div>`}<div class="grand"><span>TOTAL</span><span>${fmtM(inv.total_amount)}</span></div><div class="total-row"><span>Paid</span><span style="color:green">${fmtM(inv.paid_amount)}</span></div><div class="total-row"><strong><span>Balance Due</span><span style="color:${parseFloat(inv.balance_due||0)>0?"red":"green"}">${fmtM(inv.balance_due)}</span></strong></div></div>
+    ${inv.notes?`<div style="margin-top:30px;clear:both;font-size:11px;color:#666;"><strong>Notes:</strong> ${inv.notes}</div>`:""}
+    <div style="margin-top:20px;clear:both;text-align:center;font-size:10px;color:#999;">Generated by TaxPro GST</div></body></html>`);
+    w.document.close();w.print();
+  };
+  const label=type==="SALES"?"Invoice":"Bill";
+  return(<div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
+      {[{l:"Total "+label+"s",v:invoices.length,c:"#58a6ff"},{l:"Total Amount",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.total_amount||0),0)),c:"#3fb950"},{l:"Outstanding",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.balance_due||0),0)),c:"#e3b341"}].map(k=>(
+        <div key={k.l} style={S.kpi}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l.includes("Amount")||k.l.includes("Out")?14:22,fontWeight:700,color:k.c}}>{k.v}</div></div>
+      ))}
+    </div>
+    <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()} placeholder={`Search ${label.toLowerCase()}s...`} style={{...S.input,width:280}}/>
+      <button onClick={load} style={S.btnGhost}>Search</button>
+      <button onClick={()=>setShowForm(true)} style={{...S.btn,marginLeft:"auto"}}>+ New {label}</button>
+    </div>
+    {loading?<Spinner/>:(
+      <div style={S.card}>{invoices.length===0?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No {label.toLowerCase()}s yet.</div>:(
+        <table style={S.tbl}>
+          <thead><tr>{["Invoice No","Party","Date","Due","Amount","Paid","Balance","Status","Actions"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{invoices.map(inv=>(
+            <tr key={inv.id}>
+              <td style={{...S.td,color:"#58a6ff",cursor:"pointer",fontWeight:600}} onClick={()=>viewInv(inv.id)}>{inv.invoice_no}</td>
+              <td style={S.td}><div style={{fontWeight:500,color:"#E6EDF3"}}>{inv.party_name}</div>{inv.party_gstin&&<div style={S.mono}>{inv.party_gstin}</div>}</td>
+              <td style={S.td}>{inv.invoice_date}</td>
+              <td style={{...S.td,color:inv.due_date&&inv.due_date<todayStr()&&inv.status!=="paid"?"#f85149":"#C9D1D9"}}>{inv.due_date||"—"}</td>
+              <td style={{...S.td,fontWeight:600}}>{fmtM(inv.total_amount)}</td>
+              <td style={{...S.td,color:"#3fb950"}}>{fmtM(inv.paid_amount)}</td>
+              <td style={{...S.td,color:parseFloat(inv.balance_due||0)>0?"#f85149":"#3fb950",fontWeight:600}}>{fmtM(inv.balance_due)}</td>
+              <td style={S.td}><SBadge s={inv.status}/></td>
+              <td style={S.tdL}><div style={{display:"flex",gap:4}}>
+                <button onClick={()=>viewInv(inv.id)} style={{...S.btnGhost,fontSize:11,padding:"4px 8px"}}>View</button>
+                {inv.status!=="paid"&&<button onClick={()=>{setPayModal(inv);setPayForm({amount:String(inv.balance_due||0),method:"CASH",reference_no:"",payment_date:todayStr()});}} style={{...S.btnG,fontSize:11,padding:"4px 8px"}}>Pay</button>}
+                <button onClick={()=>del(inv.id)} style={{...S.btnDanger,fontSize:11,padding:"4px 8px"}}>Del</button>
+              </div></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}</div>
+    )}
+    {showForm&&<InvoiceForm token={token} toast={toast} type={type} onClose={()=>setShowForm(false)} onSave={()=>{setShowForm(false);load();}}/>}
+    {viewing&&(
+      <Modal title={`${label}: ${viewing.invoice_no}`} onClose={()=>setViewing(null)} wide>
+        <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center"}}>
+          <button onClick={()=>printInv(viewing)} style={S.btnG}>🖨 Print / PDF</button>
+          <SBadge s={viewing.status}/>
+          {viewing.status!=="paid"&&<div style={{marginLeft:"auto",color:"#f85149",fontWeight:600}}>Balance: {fmtM(viewing.balance_due)}</div>}
+        </div>
+        <div style={S.twoCol}>
+          <div style={{...S.card,margin:0}}><div style={{fontSize:11,color:"#8B949E",marginBottom:4}}>Bill To</div><div style={{fontWeight:600,color:"#E6EDF3"}}>{viewing.party_name}</div>{viewing.party_gstin&&<div style={S.mono}>{viewing.party_gstin}</div>}{viewing.party_address&&<div style={{fontSize:11,color:"#8B949E",marginTop:4}}>{viewing.party_address}</div>}</div>
+          <div style={{...S.card,margin:0,fontSize:12,lineHeight:1.9}}><div><span style={{color:"#8B949E"}}>Date: </span>{viewing.invoice_date}</div>{viewing.due_date&&<div><span style={{color:"#8B949E"}}>Due: </span>{viewing.due_date}</div>}<div><span style={{color:"#8B949E"}}>Tax: </span>{viewing.is_igst?"IGST":"CGST+SGST"}</div></div>
+        </div>
+        <table style={{...S.tbl,marginTop:12}}>
+          <thead><tr>{["Item","HSN","Qty","Rate","Taxable","GST%","Tax","Total"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{(viewing.items||[]).map((item,i)=>(
+            <tr key={i}><td style={{...S.td,fontWeight:500,color:"#E6EDF3"}}>{item.name}</td><td style={S.td}>{item.hsn_sac||"—"}</td><td style={S.td}>{item.qty} {item.unit}</td><td style={S.td}>{fmtM(item.rate)}</td><td style={S.td}>{fmtM(item.taxable_value)}</td><td style={S.td}>{item.gst_rate}%</td><td style={S.td}>{fmtM((item.igst_amount||0)+(item.cgst_amount||0)+(item.sgst_amount||0))}</td><td style={{...S.tdL,fontWeight:700}}>{fmtM(item.total_amount)}</td></tr>
+          ))}</tbody>
+        </table>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+          <div style={{background:"#0D1117",borderRadius:8,padding:12,width:270}}>
+            {[["Taxable",viewing.taxable_amount],...(viewing.is_igst?[["IGST",viewing.igst_amount]]:[["CGST",viewing.cgst_amount],["SGST",viewing.sgst_amount]]),["Total Tax",viewing.total_tax],["TOTAL",viewing.total_amount,true,"#3fb950"],["Paid",viewing.paid_amount,false,"#3fb950"],["Balance Due",viewing.balance_due,true,parseFloat(viewing.balance_due||0)>0?"#f85149":"#3fb950"]].map(([l,v,bold,color])=>(
+              <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #21262D"}}><span style={{color:"#8B949E",fontSize:12}}>{l}</span><span style={{color:color||"#E6EDF3",fontWeight:bold?700:400,fontSize:bold?13:12}}>{fmtM(v)}</span></div>
+            ))}
+          </div>
+        </div>
+      </Modal>
+    )}
+    {payModal&&(
+      <Modal title={`Record Payment — ${payModal.invoice_no}`} onClose={()=>setPayModal(null)}>
+        <div style={{...S.kpi,textAlign:"center",marginBottom:16}}><div style={S.kpiLabel}>Balance Due</div><div style={{fontSize:24,fontWeight:800,color:"#f85149"}}>{fmtM(payModal.balance_due)}</div></div>
+        {[{l:"Amount (Rs.) *",k:"amount",t:"number"},{l:"Payment Date *",k:"payment_date",t:"date"},{l:"Reference No",k:"reference_no",t:"text"}].map(f=>(
+          <div key={f.k} style={S.fg}><label style={S.label}>{f.l}</label><input style={S.input} type={f.t} value={payForm[f.k]} onChange={e=>setPayForm(p=>({...p,[f.k]:e.target.value}))}/></div>
+        ))}
+        <div style={S.fg}><label style={S.label}>Method</label><select style={S.select} value={payForm.method} onChange={e=>setPayForm(p=>({...p,method:e.target.value}))}>{["CASH","CHEQUE","NEFT","RTGS","IMPS","UPI","CARD"].map(m=><option key={m}>{m}</option>)}</select></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setPayModal(null)} style={S.btnGhost}>Cancel</button><button onClick={recordPayment} style={S.btnG}>Record Payment</button></div>
+      </Modal>
+    )}
   </div>);
 }
 
@@ -347,7 +819,7 @@ function InvoiceForm({token,toast,type,onClose,onSave}){
     <div style={{overflowX:"auto"}}><table style={{...S.tbl,minWidth:700}}><thead><tr>{["Product","HSN","Qty","Unit","Rate","Disc%","GST%","Amount",""].map(h=><th key={h} style={{...S.th,fontSize:10}}>{h}</th>)}</tr></thead>
     <tbody>{items.map((item,i)=>{const c=calcItem(item);return(<tr key={i}>
       <td style={S.td}><select style={{...S.select,fontSize:11,marginBottom:4}} onChange={e=>selectProduct(i,e.target.value)}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><input style={{...S.input,fontSize:11}} placeholder="Item name *" value={item.name} onChange={e=>setItem(i,"name",e.target.value)}/></td>
-      <td style={S.td}><input style={{...S.input,width:65,fontSize:11}} value={item.hsn_sac} onChange={e=>setItem(i,"hsn_sac",e.target.value)}/></td>
+      <td style={S.td}><HSNInput value={item.hsn_sac||""} onChange={v=>setItem(i,"hsn_sac",v)} token={token} onSelect={itm=>{setItem(i,"hsn_sac",itm.code);if(itm.gst_rate)setItem(i,"gst_rate",String(itm.gst_rate));if(itm.uom)setItem(i,"unit",itm.uom);}} placeholder="HSN..."/></td>
       <td style={S.td}><input style={{...S.input,width:55,fontSize:11}} type="number" value={item.qty} onChange={e=>setItem(i,"qty",e.target.value)}/></td>
       <td style={S.td}><select style={{...S.select,fontSize:11,width:65}} value={item.unit} onChange={e=>setItem(i,"unit",e.target.value)}>{["PCS","KG","LTR","MTR","BOX","NOS"].map(u=><option key={u}>{u}</option>)}</select></td>
       <td style={S.td}><input style={{...S.input,width:80,fontSize:11}} type="number" value={item.rate} onChange={e=>setItem(i,"rate",e.target.value)}/></td>
@@ -489,7 +961,7 @@ function Products({token,toast}){
           <div style={S.fg}><label style={S.label}>Name *</label><input style={S.input} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             <div style={S.fg}><label style={S.label}>Code</label><input style={S.input} value={form.code} onChange={e=>setForm(p=>({...p,code:e.target.value}))}/></div>
-            <div style={S.fg}><label style={S.label}>HSN/SAC</label><input style={S.input} value={form.hsn_sac} onChange={e=>setForm(p=>({...p,hsn_sac:e.target.value}))}/></div>
+            <div style={S.fg}><label style={S.label}>HSN/SAC</label><HSNInput value={form.hsn_sac||""} onChange={v=>setForm(p=>({...p,hsn_sac:v}))} token={token} onSelect={item=>{setForm(p=>({...p,hsn_sac:item.code,gst_rate:String(item.gst_rate||p.gst_rate),unit:item.uom||p.unit}));}} placeholder="Type HSN code..."/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             <div style={S.fg}><label style={S.label}>Unit</label><select style={S.select} value={form.unit} onChange={e=>setForm(p=>({...p,unit:e.target.value}))}>{UNITS.map(u=><option key={u}>{u}</option>)}</select></div>
@@ -1300,6 +1772,7 @@ const NAV=[
   {key:"calendar",     icon:"📅",label:"Due Date Calendar",    group:"TOOLS"},
   {key:"reply",        icon:"✍", label:"Notice Reply AI",      group:"TOOLS"},
   {key:"ai",           icon:"✦", label:"AI Assistant",         group:"TOOLS"},
+  {key:"hsn-manager",  icon:"🏷", label:"HSN/SAC Codes",        group:"ACCOUNT"},
   {key:"settings",     icon:"⚙", label:"Settings",             group:"ACCOUNT"},
 ];
 
@@ -1315,7 +1788,7 @@ const TITLES={
   "acc-ledgers":"Ledger Manager","acc-vouchers":"Voucher Entry (F4–F9)",
   "acc-reports":"Accounting Reports",
   calculator:"GST Calculator",calendar:"Compliance Calendar",
-  reply:"Notice Reply Generator",ai:"AI Assistant",settings:"Settings",
+  reply:"Notice Reply Generator",ai:"AI Assistant","hsn-manager":"HSN/SAC Code Library",settings:"Settings",
 };
 
 export default function App(){
@@ -1404,6 +1877,7 @@ export default function App(){
           {view==="calendar"    &&<ComplianceCalendar/>}
           {view==="reply"       &&<NoticeReply     token={token}/>}
           {view==="ai"          &&<AIAssistant     token={token}/>}
+          {view==="hsn-manager" &&<HSNManager       token={token} toast={showToast}/>}
           {view==="settings"    &&<Settings        token={token} user={user} toast={showToast} onLogout={logout} accentColor={accentColor} setAccentColor={setAccentColor}/>}
         </div>
       </div>
