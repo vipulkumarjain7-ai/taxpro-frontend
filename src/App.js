@@ -369,6 +369,30 @@ function HSNManager({token,toast}){
   </div>);
 }
 
+
+// ── COMPANY GUARD — protects accounting views ────────────────────────────
+function AccCompanyGuard({company, onGo, children}){
+  if(!company){
+    return(
+      <div style={{...S.card,textAlign:"center",padding:60,maxWidth:500,margin:"0 auto"}}>
+        <div style={{fontSize:52,marginBottom:16}}>🏢</div>
+        <div style={{fontSize:18,fontWeight:700,color:"#E6EDF3",marginBottom:8}}>No Company Selected</div>
+        <div style={{fontSize:13,color:"#8B949E",marginBottom:24,lineHeight:1.8}}>
+          Accounting features are company-specific.<br/>
+          Each company has its own <b style={{color:"#58a6ff"}}>Chart of Accounts</b>, <b style={{color:"#58a6ff"}}>Ledgers</b>, <b style={{color:"#58a6ff"}}>Vouchers</b> and <b style={{color:"#58a6ff"}}>Reports</b> — completely isolated from other companies.
+        </div>
+        <button onClick={onGo} style={{...S.btn,padding:"12px 30px",fontSize:14}}>
+          → Select or Create Company
+        </button>
+        <div style={{fontSize:11,color:"#8B949E",marginTop:12}}>
+          Tip: Use the company panel in the sidebar (TALLY ACCOUNTING section) to switch companies anytime
+        </div>
+      </div>
+    );
+  }
+  return children;
+}
+
 function AuthScreen({onAuth}){
   const[tab,setTab]=useState("login");
   const[form,setForm]=useState({name:"",email:"",password:"",firm_name:"",frn:""});
@@ -453,6 +477,260 @@ function Dashboard({token}){
         </div>
       )}
     </div>
+  </div>);
+}
+
+function Parties({token,toast}){
+  const[parties,setParties]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showModal,setShowModal]=useState(false);const[editing,setEditing]=useState(null);const[saving,setSaving]=useState(false);const[ledger,setLedger]=useState(null);
+  const[form,setForm]=useState({name:"",gstin:"",state:"",type:"Customer",phone:"",email:"",address:"",city:"",pincode:"",pan:"",credit_limit:"0"});
+  const STATES=["Delhi","Maharashtra","Gujarat","Uttar Pradesh","Rajasthan","Karnataka","Tamil Nadu","West Bengal","Madhya Pradesh","Andhra Pradesh","Telangana","Kerala","Punjab","Haryana","Bihar","Odisha","Uttarakhand","Goa","Other"];
+  const load=useCallback(()=>{setLoading(true);api(`/parties${search?`?search=${encodeURIComponent(search)}`:""}`, "GET",null,token).then(d=>{setParties(d.parties||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,search]);
+  useEffect(()=>{load();},[load]);
+  const openAdd=()=>{setEditing(null);setForm({name:"",gstin:"",state:"",type:"Customer",phone:"",email:"",address:"",city:"",pincode:"",pan:"",credit_limit:"0"});setShowModal(true);};
+  const openEdit=p=>{setEditing(p);setForm({name:p.name,gstin:p.gstin||"",state:p.state||"",type:p.type||"Customer",phone:p.phone||"",email:p.email||"",address:p.address||"",city:p.city||"",pincode:p.pincode||"",pan:p.pan||"",credit_limit:String(p.credit_limit||0)});setShowModal(true);};
+  const save=async()=>{if(!form.name)return toast("Party name required","error");setSaving(true);try{if(editing){await api(`/parties/${editing.id}`,"PUT",form,token);toast("Updated","success");}else{await api("/parties","POST",form,token);toast("Party added","success");}setShowModal(false);load();}catch(e){toast(e.message,"error");}setSaving(false);};
+  const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/parties/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
+  const viewLedger=async id=>{try{const d=await api(`/parties/${id}/ledger`,"GET",null,token);setLedger(d);}catch(e){toast(e.message,"error");}};
+  return(<div>
+    <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()} placeholder="Search parties..." style={{...S.input,width:280}}/>
+      <button onClick={load} style={S.btnGhost}>Search</button>
+      <button onClick={openAdd} style={{...S.btn,marginLeft:"auto"}}>+ Add Party</button>
+    </div>
+    {loading?<Spinner/>:(
+      <div style={S.card}>{parties.length===0?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No parties yet.</div>:(
+        <table style={S.tbl}><thead><tr>{["Name","GSTIN","Type","Phone","City","Outstanding","Actions"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <tbody>{parties.map(p=>(
+          <tr key={p.id}>
+            <td style={{...S.td,fontWeight:600,color:"#58a6ff",cursor:"pointer"}} onClick={()=>viewLedger(p.id)}>{p.name}</td>
+            <td style={S.td}><span style={S.mono}>{p.gstin||"—"}</span></td>
+            <td style={S.td}>{badge(p.type,p.type==="Customer"?"green":"blue")}</td>
+            <td style={S.td}>{p.phone||"—"}</td>
+            <td style={S.td}>{p.city||"—"}</td>
+            <td style={{...S.td,color:parseFloat(p.outstanding||0)>0?"#e3b341":"#3fb950",fontWeight:600}}>{fmtM(p.outstanding||0)}</td>
+            <td style={S.tdL}><div style={{display:"flex",gap:4}}>
+              <button onClick={()=>viewLedger(p.id)} style={{...S.btnGhost,fontSize:11,padding:"4px 8px"}}>Ledger</button>
+              <button onClick={()=>openEdit(p)} style={{...S.btnGhost,fontSize:11,padding:"4px 8px"}}>Edit</button>
+              <button onClick={()=>del(p.id)} style={{...S.btnDanger,fontSize:11,padding:"4px 8px"}}>Del</button>
+            </div></td>
+          </tr>
+        ))}</tbody></table>
+      )}</div>
+    )}
+    {showModal&&(
+      <Modal title={editing?"Edit Party":"Add Party"} onClose={()=>setShowModal(false)} wide>
+        <div style={S.twoCol}>
+          <div>
+            <div style={S.fg}><label style={S.label}>Party Name *</label><input style={S.input} placeholder="Company or person name" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+            <div style={S.fg}><label style={S.label}>Type</label><select style={S.select} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))}>{["Customer","Supplier","Both","Sundry Debtors","Sundry Creditors"].map(t=><option key={t}>{t}</option>)}</select></div>
+            <div style={S.fg}><label style={S.label}>GSTIN</label><input style={S.input} placeholder="15 character GSTIN" value={form.gstin} onChange={e=>setForm(p=>({...p,gstin:e.target.value.toUpperCase()}))}/></div>
+            <div style={S.fg}><label style={S.label}>PAN</label><input style={S.input} value={form.pan} onChange={e=>setForm(p=>({...p,pan:e.target.value.toUpperCase()}))}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={S.fg}><label style={S.label}>Phone</label><input style={S.input} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></div>
+              <div style={S.fg}><label style={S.label}>Email</label><input style={S.input} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div>
+            </div>
+          </div>
+          <div>
+            <div style={S.fg}><label style={S.label}>Address</label><textarea style={{...S.input,resize:"vertical",minHeight:60}} value={form.address} onChange={e=>setForm(p=>({...p,address:e.target.value}))}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={S.fg}><label style={S.label}>City</label><input style={S.input} value={form.city} onChange={e=>setForm(p=>({...p,city:e.target.value}))}/></div>
+              <div style={S.fg}><label style={S.label}>Pincode</label><input style={S.input} value={form.pincode} onChange={e=>setForm(p=>({...p,pincode:e.target.value}))}/></div>
+            </div>
+            <div style={S.fg}><label style={S.label}>State</label><select style={S.select} value={form.state} onChange={e=>setForm(p=>({...p,state:e.target.value}))}><option value="">Select</option>{STATES.map(s=><option key={s}>{s}</option>)}</select></div>
+            <div style={S.fg}><label style={S.label}>Credit Limit (Rs.)</label><input style={S.input} type="number" value={form.credit_limit} onChange={e=>setForm(p=>({...p,credit_limit:e.target.value}))}/></div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setShowModal(false)} style={S.btnGhost}>Cancel</button><button onClick={save} disabled={saving} style={{...S.btn,opacity:saving?0.6:1}}>{saving?"Saving...":"Save"}</button></div>
+      </Modal>
+    )}
+    {ledger&&(
+      <Modal title={`Ledger — ${ledger.party?.name}`} onClose={()=>setLedger(null)} wide>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
+          {[{l:"Total Sales",v:fmtM(ledger.summary?.total_sales||0),c:"#3fb950"},{l:"Total Purchases",v:fmtM(ledger.summary?.total_purchases||0),c:"#58a6ff"},{l:"Outstanding",v:fmtM(ledger.summary?.outstanding||0),c:"#f85149"}].map(k=>(
+            <div key={k.l} style={S.kpi}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:15,fontWeight:700,color:k.c}}>{k.v}</div></div>
+          ))}
+        </div>
+        <table style={S.tbl}><thead><tr>{["Date","Invoice No","Type","Amount","Paid","Balance"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+        <tbody>{(ledger.invoices||[]).map(inv=>(
+          <tr key={inv.id}><td style={S.td}>{inv.invoice_date}</td><td style={{...S.td,color:"#58a6ff"}}>{inv.invoice_no}</td><td style={S.td}>{badge(inv.invoice_type,inv.invoice_type==="SALES"?"green":"blue")}</td><td style={{...S.td,fontWeight:600}}>{fmtM(inv.total_amount)}</td><td style={{...S.td,color:"#3fb950"}}>{fmtM(inv.paid_amount)}</td><td style={{...S.tdL,color:parseFloat(inv.balance_due||0)>0?"#f85149":"#3fb950",fontWeight:600}}>{fmtM(inv.balance_due)}</td></tr>
+        ))}{!ledger.invoices?.length&&<tr><td colSpan={6} style={{...S.td,textAlign:"center",color:"#8B949E",padding:20}}>No transactions</td></tr>}</tbody></table>
+      </Modal>
+    )}
+  </div>);
+}
+
+function InvoiceForm({token,toast,type,onClose,onSave}){
+  const[parties,setParties]=useState([]);const[products,setProducts]=useState([]);const[saving,setSaving]=useState(false);
+  const[form,setForm]=useState({invoice_type:type||"SALES",party_id:"",party_name:"",party_gstin:"",party_address:"",party_state:"",invoice_date:todayStr(),due_date:"",place_of_supply:"",is_igst:false,notes:"",terms:"Payment due within 30 days."});
+  const[items,setItems]=useState([{name:"",hsn_sac:"",unit:"PCS",qty:"1",rate:"0",discount_pct:"0",gst_rate:"18",product_id:""}]);
+  useEffect(()=>{Promise.all([api("/parties","GET",null,token).catch(()=>({parties:[]})),api("/products","GET",null,token).catch(()=>({products:[]}))]).then(([p,pr])=>{setParties(p.parties||[]);setProducts(pr.products||[]);});},[token]);
+  const selectParty=id=>{const p=parties.find(x=>x.id===id);if(p)setForm(f=>({...f,party_id:p.id,party_name:p.name,party_gstin:p.gstin||"",party_address:[p.address,p.city,p.state,p.pincode].filter(Boolean).join(", "),party_state:p.state||""}));};
+  const selectProduct=(idx,pid)=>{const p=products.find(x=>x.id===pid);if(p){const n=[...items];n[idx]={...n[idx],product_id:p.id,name:p.name,hsn_sac:p.hsn_sac||"",unit:p.unit||"PCS",rate:type==="SALES"?String(p.sale_price||0):String(p.purchase_price||0),gst_rate:String(p.gst_rate||18)};setItems(n);}};
+  const setItem=(i,k,v)=>{const n=[...items];n[i]={...n[i],[k]:v};setItems(n);};
+  const addItem=()=>setItems(p=>[...p,{name:"",hsn_sac:"",unit:"PCS",qty:"1",rate:"0",discount_pct:"0",gst_rate:"18",product_id:""}]);
+  const removeItem=i=>{if(items.length===1)return;setItems(p=>p.filter((_,idx)=>idx!==i));};
+  const calcItem=item=>{const qty=parseFloat(item.qty)||0,rate=parseFloat(item.rate)||0,disc=parseFloat(item.discount_pct)||0,gr=parseFloat(item.gst_rate)||0;const gross=qty*rate,ta=gross-gross*disc/100;const igst=form.is_igst?ta*gr/100:0,cgst=!form.is_igst?ta*(gr/2)/100:0,sgst=!form.is_igst?ta*(gr/2)/100:0;return{taxable:ta,igst,cgst,sgst,total:ta+igst+cgst+sgst};};
+  const totals=items.reduce((acc,item)=>{const c=calcItem(item);return{taxable:acc.taxable+c.taxable,igst:acc.igst+c.igst,cgst:acc.cgst+c.cgst,sgst:acc.sgst+c.sgst,total:acc.total+c.total};},{taxable:0,igst:0,cgst:0,sgst:0,total:0});
+  const save=async()=>{
+    if(!form.party_name)return toast("Party name required","error");
+    if(items.some(i=>!i.name))return toast("All items need a name","error");
+    setSaving(true);
+    try{await api("/invoices","POST",{...form,items:items.map(item=>{const c=calcItem(item);return{...item,...c};})},token);toast(`${type==="SALES"?"Invoice":"Bill"} created!`,"success");onSave();}
+    catch(e){toast(e.message,"error");}
+    setSaving(false);
+  };
+  return(
+    <Modal title={`New ${type==="SALES"?"Sales Invoice":"Purchase Bill"}`} onClose={onClose} wide>
+      <div style={S.twoCol}>
+        <div>
+          <div style={S.fg}><label style={S.label}>Select Party</label><select style={S.select} onChange={e=>selectParty(e.target.value)}><option value="">-- Select from list --</option>{parties.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>
+          <div style={S.fg}><label style={S.label}>Party Name *</label><input style={S.input} placeholder="Customer/Supplier name" value={form.party_name} onChange={e=>setForm(f=>({...f,party_name:e.target.value}))}/></div>
+          <div style={S.fg}><label style={S.label}>GSTIN</label><input style={S.input} value={form.party_gstin} onChange={e=>setForm(f=>({...f,party_gstin:e.target.value.toUpperCase()}))}/></div>
+          <div style={S.fg}><label style={S.label}>Address</label><textarea style={{...S.input,resize:"vertical",minHeight:50}} value={form.party_address} onChange={e=>setForm(f=>({...f,party_address:e.target.value}))}/></div>
+        </div>
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div style={S.fg}><label style={S.label}>Invoice Date *</label><input style={S.input} type="date" value={form.invoice_date} onChange={e=>setForm(f=>({...f,invoice_date:e.target.value}))}/></div>
+            <div style={S.fg}><label style={S.label}>Due Date</label><input style={S.input} type="date" value={form.due_date} onChange={e=>setForm(f=>({...f,due_date:e.target.value}))}/></div>
+          </div>
+          <div style={S.fg}><label style={S.label}>Place of Supply</label><input style={S.input} value={form.place_of_supply} onChange={e=>setForm(f=>({...f,place_of_supply:e.target.value}))}/></div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+            <input type="checkbox" id="isIgst" checked={form.is_igst} onChange={e=>setForm(f=>({...f,is_igst:e.target.checked}))}/>
+            <label htmlFor="isIgst" style={{...S.label,marginBottom:0,cursor:"pointer"}}>Inter-State (IGST)</label>
+          </div>
+          <div style={S.fg}><label style={S.label}>Notes</label><textarea style={{...S.input,resize:"vertical",minHeight:50}} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}/></div>
+        </div>
+      </div>
+      <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:8}}>Items</div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{...S.tbl,minWidth:700}}>
+          <thead><tr>{["Product","HSN","Qty","Unit","Rate","Disc%","GST%","Amount",""].map(h=><th key={h} style={{...S.th,fontSize:10}}>{h}</th>)}</tr></thead>
+          <tbody>{items.map((item,i)=>{const c=calcItem(item);return(
+            <tr key={i}>
+              <td style={S.td}><select style={{...S.select,fontSize:11,marginBottom:4}} onChange={e=>selectProduct(i,e.target.value)}><option value="">-- Select --</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><input style={{...S.input,fontSize:11}} placeholder="Item name *" value={item.name} onChange={e=>setItem(i,"name",e.target.value)}/></td>
+              <td style={S.td}><input style={{...S.input,width:70,fontSize:11}} value={item.hsn_sac} onChange={e=>setItem(i,"hsn_sac",e.target.value)}/></td>
+              <td style={S.td}><input style={{...S.input,width:60,fontSize:11}} type="number" value={item.qty} onChange={e=>setItem(i,"qty",e.target.value)}/></td>
+              <td style={S.td}><select style={{...S.select,fontSize:11,width:70}} value={item.unit} onChange={e=>setItem(i,"unit",e.target.value)}>{["PCS","KG","LTR","MTR","BOX","NOS"].map(u=><option key={u}>{u}</option>)}</select></td>
+              <td style={S.td}><input style={{...S.input,width:80,fontSize:11}} type="number" value={item.rate} onChange={e=>setItem(i,"rate",e.target.value)}/></td>
+              <td style={S.td}><input style={{...S.input,width:50,fontSize:11}} type="number" value={item.discount_pct} onChange={e=>setItem(i,"discount_pct",e.target.value)}/></td>
+              <td style={S.td}><select style={{...S.select,fontSize:11,width:70}} value={item.gst_rate} onChange={e=>setItem(i,"gst_rate",e.target.value)}>{["0","5","12","18","28"].map(r=><option key={r} value={r}>{r}%</option>)}</select></td>
+              <td style={{...S.td,fontWeight:600,color:"#3fb950"}}>{fmtM(c.total)}</td>
+              <td style={S.tdL}><button onClick={()=>removeItem(i)} style={{...S.btnDanger,padding:"3px 8px",fontSize:11}}>✕</button></td>
+            </tr>
+          );})}</tbody>
+        </table>
+      </div>
+      <button onClick={addItem} style={{...S.btnGhost,fontSize:12,marginTop:8,marginBottom:16}}>+ Add Item</button>
+      <div style={{display:"flex",justifyContent:"flex-end"}}>
+        <div style={{background:"#0D1117",borderRadius:8,padding:14,width:280}}>
+          {[["Taxable",totals.taxable],...(form.is_igst?[["IGST",totals.igst]]:[["CGST",totals.cgst],["SGST",totals.sgst]]),["Total Tax",totals.igst+totals.cgst+totals.sgst]].map(([l,v])=>(
+            <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #21262D"}}><span style={{color:"#8B949E",fontSize:12}}>{l}</span><span style={{color:"#C9D1D9",fontSize:12}}>{fmtM(v)}</span></div>
+          ))}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0"}}><span style={{color:"#E6EDF3",fontWeight:700}}>TOTAL</span><span style={{color:"#3fb950",fontWeight:700,fontSize:16}}>{fmtM(totals.total)}</span></div>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:16}}>
+        <button onClick={onClose} style={S.btnGhost}>Cancel</button>
+        <button onClick={save} disabled={saving} style={{...S.btnG,opacity:saving?0.6:1}}>{saving?"Creating...":"Create "+(type==="SALES"?"Invoice":"Bill")}</button>
+      </div>
+    </Modal>
+  );
+}
+
+function InvoiceList({token,toast,type}){
+  const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showForm,setShowForm]=useState(false);const[viewing,setViewing]=useState(null);const[payModal,setPayModal]=useState(null);const[payForm,setPayForm]=useState({amount:"",method:"CASH",reference_no:"",payment_date:todayStr()});
+  const load=useCallback(()=>{setLoading(true);api(`/invoices?type=${type}${search?`&search=${encodeURIComponent(search)}`:""}`, "GET",null,token).then(d=>{setInvoices(d.invoices||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,type,search]);
+  useEffect(()=>{load();},[load]);
+  const del=async id=>{if(!window.confirm("Delete invoice?"))return;try{await api(`/invoices/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
+  const viewInv=async id=>{try{const d=await api(`/invoices/${id}`,"GET",null,token);setViewing(d.invoice);}catch(e){toast(e.message,"error");}};
+  const recordPayment=async()=>{try{await api(`/invoices/${payModal.id}/payment`,"POST",payForm,token);toast("Payment recorded","success");setPayModal(null);load();}catch(e){toast(e.message,"error");}};
+  const printInv=inv=>{
+    const w=window.open("","_blank");
+    w.document.write(`<!DOCTYPE html><html><head><title>${inv.invoice_no}</title><style>body{font-family:Arial;margin:20px;font-size:12px;}h1{color:#1F6FEB;font-size:18px;}table{width:100%;border-collapse:collapse;margin:10px 0;}th{background:#1F6FEB;color:white;padding:7px;text-align:left;}td{padding:6px;border-bottom:1px solid #eee;}.right{text-align:right;}.total-box{float:right;width:280px;background:#f8f9fa;padding:12px;border-radius:6px;}.total-row{display:flex;justify-content:space-between;padding:4px 0;}.grand{background:#1F6FEB;color:white;padding:8px;font-weight:bold;display:flex;justify-content:space-between;}</style></head><body>
+    <h1>🛡️ TaxPro GST — ${type==="SALES"?"TAX INVOICE":"PURCHASE BILL"}</h1>
+    <p><strong>Invoice No:</strong> ${inv.invoice_no} &nbsp;&nbsp; <strong>Date:</strong> ${inv.invoice_date} ${inv.due_date?`&nbsp;&nbsp; <strong>Due:</strong> ${inv.due_date}`:""}</p>
+    <p><strong>Bill To:</strong> ${inv.party_name} ${inv.party_gstin?`| GSTIN: ${inv.party_gstin}`:""}</p>
+    ${inv.party_address?`<p>${inv.party_address}</p>`:""}
+    <table><thead><tr><th>#</th><th>Item</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Taxable</th><th>GST%</th><th>Tax</th><th class="right">Total</th></tr></thead>
+    <tbody>${(inv.items||[]).map((it,i)=>`<tr><td>${i+1}</td><td><strong>${it.name}</strong></td><td>${it.hsn_sac||""}</td><td>${it.qty} ${it.unit}</td><td>${fmtM(it.rate)}</td><td>${fmtM(it.taxable_value)}</td><td>${it.gst_rate}%</td><td>${fmtM((it.igst_amount||0)+(it.cgst_amount||0)+(it.sgst_amount||0))}</td><td class="right"><strong>${fmtM(it.total_amount)}</strong></td></tr>`).join("")}</tbody></table>
+    <div class="total-box"><div class="total-row"><span>Taxable</span><span>${fmtM(inv.taxable_amount)}</span></div>${inv.is_igst?`<div class="total-row"><span>IGST</span><span>${fmtM(inv.igst_amount)}</span></div>`:`<div class="total-row"><span>CGST</span><span>${fmtM(inv.cgst_amount)}</span></div><div class="total-row"><span>SGST</span><span>${fmtM(inv.sgst_amount)}</span></div>`}<div class="grand"><span>TOTAL</span><span>${fmtM(inv.total_amount)}</span></div><div class="total-row"><span>Paid</span><span style="color:green">${fmtM(inv.paid_amount)}</span></div><div class="total-row"><strong><span>Balance Due</span><span style="color:${parseFloat(inv.balance_due||0)>0?"red":"green"}">${fmtM(inv.balance_due)}</span></strong></div></div>
+    ${inv.notes?`<div style="margin-top:30px;clear:both;font-size:11px;color:#666;"><strong>Notes:</strong> ${inv.notes}</div>`:""}
+    <div style="margin-top:20px;clear:both;text-align:center;font-size:10px;color:#999;">Generated by TaxPro GST</div></body></html>`);
+    w.document.close();w.print();
+  };
+  const label=type==="SALES"?"Invoice":"Bill";
+  return(<div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
+      {[{l:"Total "+label+"s",v:invoices.length,c:"#58a6ff"},{l:"Total Amount",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.total_amount||0),0)),c:"#3fb950"},{l:"Outstanding",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.balance_due||0),0)),c:"#e3b341"}].map(k=>(
+        <div key={k.l} style={S.kpi}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l.includes("Amount")||k.l.includes("Out")?14:22,fontWeight:700,color:k.c}}>{k.v}</div></div>
+      ))}
+    </div>
+    <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()} placeholder={`Search ${label.toLowerCase()}s...`} style={{...S.input,width:280}}/>
+      <button onClick={load} style={S.btnGhost}>Search</button>
+      <button onClick={()=>setShowForm(true)} style={{...S.btn,marginLeft:"auto"}}>+ New {label}</button>
+    </div>
+    {loading?<Spinner/>:(
+      <div style={S.card}>{invoices.length===0?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No {label.toLowerCase()}s yet.</div>:(
+        <table style={S.tbl}>
+          <thead><tr>{["Invoice No","Party","Date","Due","Amount","Paid","Balance","Status","Actions"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{invoices.map(inv=>(
+            <tr key={inv.id}>
+              <td style={{...S.td,color:"#58a6ff",cursor:"pointer",fontWeight:600}} onClick={()=>viewInv(inv.id)}>{inv.invoice_no}</td>
+              <td style={S.td}><div style={{fontWeight:500,color:"#E6EDF3"}}>{inv.party_name}</div>{inv.party_gstin&&<div style={S.mono}>{inv.party_gstin}</div>}</td>
+              <td style={S.td}>{inv.invoice_date}</td>
+              <td style={{...S.td,color:inv.due_date&&inv.due_date<todayStr()&&inv.status!=="paid"?"#f85149":"#C9D1D9"}}>{inv.due_date||"—"}</td>
+              <td style={{...S.td,fontWeight:600}}>{fmtM(inv.total_amount)}</td>
+              <td style={{...S.td,color:"#3fb950"}}>{fmtM(inv.paid_amount)}</td>
+              <td style={{...S.td,color:parseFloat(inv.balance_due||0)>0?"#f85149":"#3fb950",fontWeight:600}}>{fmtM(inv.balance_due)}</td>
+              <td style={S.td}><SBadge s={inv.status}/></td>
+              <td style={S.tdL}><div style={{display:"flex",gap:4}}>
+                <button onClick={()=>viewInv(inv.id)} style={{...S.btnGhost,fontSize:11,padding:"4px 8px"}}>View</button>
+                {inv.status!=="paid"&&<button onClick={()=>{setPayModal(inv);setPayForm({amount:String(inv.balance_due||0),method:"CASH",reference_no:"",payment_date:todayStr()});}} style={{...S.btnG,fontSize:11,padding:"4px 8px"}}>Pay</button>}
+                <button onClick={()=>del(inv.id)} style={{...S.btnDanger,fontSize:11,padding:"4px 8px"}}>Del</button>
+              </div></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}</div>
+    )}
+    {showForm&&<InvoiceForm token={token} toast={toast} type={type} onClose={()=>setShowForm(false)} onSave={()=>{setShowForm(false);load();}}/>}
+    {viewing&&(
+      <Modal title={`${label}: ${viewing.invoice_no}`} onClose={()=>setViewing(null)} wide>
+        <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center"}}>
+          <button onClick={()=>printInv(viewing)} style={S.btnG}>🖨 Print / PDF</button>
+          <SBadge s={viewing.status}/>
+          {viewing.status!=="paid"&&<div style={{marginLeft:"auto",color:"#f85149",fontWeight:600}}>Balance: {fmtM(viewing.balance_due)}</div>}
+        </div>
+        <div style={S.twoCol}>
+          <div style={{...S.card,margin:0}}><div style={{fontSize:11,color:"#8B949E",marginBottom:4}}>Bill To</div><div style={{fontWeight:600,color:"#E6EDF3"}}>{viewing.party_name}</div>{viewing.party_gstin&&<div style={S.mono}>{viewing.party_gstin}</div>}{viewing.party_address&&<div style={{fontSize:11,color:"#8B949E",marginTop:4}}>{viewing.party_address}</div>}</div>
+          <div style={{...S.card,margin:0,fontSize:12,lineHeight:1.9}}><div><span style={{color:"#8B949E"}}>Date: </span>{viewing.invoice_date}</div>{viewing.due_date&&<div><span style={{color:"#8B949E"}}>Due: </span>{viewing.due_date}</div>}<div><span style={{color:"#8B949E"}}>Tax: </span>{viewing.is_igst?"IGST":"CGST+SGST"}</div></div>
+        </div>
+        <table style={{...S.tbl,marginTop:12}}>
+          <thead><tr>{["Item","HSN","Qty","Rate","Taxable","GST%","Tax","Total"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{(viewing.items||[]).map((item,i)=>(
+            <tr key={i}><td style={{...S.td,fontWeight:500,color:"#E6EDF3"}}>{item.name}</td><td style={S.td}>{item.hsn_sac||"—"}</td><td style={S.td}>{item.qty} {item.unit}</td><td style={S.td}>{fmtM(item.rate)}</td><td style={S.td}>{fmtM(item.taxable_value)}</td><td style={S.td}>{item.gst_rate}%</td><td style={S.td}>{fmtM((item.igst_amount||0)+(item.cgst_amount||0)+(item.sgst_amount||0))}</td><td style={{...S.tdL,fontWeight:700}}>{fmtM(item.total_amount)}</td></tr>
+          ))}</tbody>
+        </table>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}>
+          <div style={{background:"#0D1117",borderRadius:8,padding:12,width:270}}>
+            {[["Taxable",viewing.taxable_amount],...(viewing.is_igst?[["IGST",viewing.igst_amount]]:[["CGST",viewing.cgst_amount],["SGST",viewing.sgst_amount]]),["Total Tax",viewing.total_tax],["TOTAL",viewing.total_amount,true,"#3fb950"],["Paid",viewing.paid_amount,false,"#3fb950"],["Balance Due",viewing.balance_due,true,parseFloat(viewing.balance_due||0)>0?"#f85149":"#3fb950"]].map(([l,v,bold,color])=>(
+              <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #21262D"}}><span style={{color:"#8B949E",fontSize:12}}>{l}</span><span style={{color:color||"#E6EDF3",fontWeight:bold?700:400,fontSize:bold?13:12}}>{fmtM(v)}</span></div>
+            ))}
+          </div>
+        </div>
+      </Modal>
+    )}
+    {payModal&&(
+      <Modal title={`Record Payment — ${payModal.invoice_no}`} onClose={()=>setPayModal(null)}>
+        <div style={{...S.kpi,textAlign:"center",marginBottom:16}}><div style={S.kpiLabel}>Balance Due</div><div style={{fontSize:24,fontWeight:800,color:"#f85149"}}>{fmtM(payModal.balance_due)}</div></div>
+        {[{l:"Amount (Rs.) *",k:"amount",t:"number"},{l:"Payment Date *",k:"payment_date",t:"date"},{l:"Reference No",k:"reference_no",t:"text"}].map(f=>(
+          <div key={f.k} style={S.fg}><label style={S.label}>{f.l}</label><input style={S.input} type={f.t} value={payForm[f.k]} onChange={e=>setPayForm(p=>({...p,[f.k]:e.target.value}))}/></div>
+        ))}
+        <div style={S.fg}><label style={S.label}>Method</label><select style={S.select} value={payForm.method} onChange={e=>setPayForm(p=>({...p,method:e.target.value}))}>{["CASH","CHEQUE","NEFT","RTGS","IMPS","UPI","CARD"].map(m=><option key={m}>{m}</option>)}</select></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setPayModal(null)} style={S.btnGhost}>Cancel</button><button onClick={recordPayment} style={S.btnG}>Record Payment</button></div>
+      </Modal>
+    )}
   </div>);
 }
 
@@ -1473,80 +1751,96 @@ function AccountingReports({token,toast,companyId}){
   </div>);
 }
 
-function AccountingShell({token,toast,activeView}){
-  const[company,setCompany]=useState(()=>{try{return JSON.parse(localStorage.getItem("taxpro_company"));}catch{return null;}});
-  const selectCompany=c=>{setCompany(c);localStorage.setItem("taxpro_company",JSON.stringify(c));};
-  if(activeView==="acc-companies")return<CompanyManager token={token} toast={toast} onSelect={selectCompany} selectedCompany={company}/>;
-  if(!company)return(<div style={{...S.card,textAlign:"center",padding:50}}><div style={{fontSize:48,marginBottom:12}}>🏢</div><div style={{fontSize:16,fontWeight:700,color:"#E6EDF3",marginBottom:8}}>No Company Selected</div><div style={{color:"#8B949E",fontSize:13,marginBottom:20}}>Go to "Companies" in the sidebar to create or select a company.</div></div>);
-  return(<div>
-    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
-      <span style={{fontSize:13,fontWeight:600,color:"#E6EDF3"}}>📊 {company.name}</span>
-      <span style={{fontSize:11,color:"#8B949E"}}>FY: {company.fy_start?.substring(0,4)}–{company.fy_end?.substring(0,4)}</span>
-      {company.gstin&&<span style={{fontFamily:"monospace",fontSize:11,color:"#8B949E"}}>{company.gstin}</span>}
-      <button onClick={()=>{setCompany(null);localStorage.removeItem("taxpro_company");}} style={{...S.btnGhost,fontSize:11,padding:"4px 10px",marginLeft:"auto"}}>Change Company</button>
+// AccountingShell removed - now using AccCompanyGuard directly
+
+
+function BackupRestore({token,toast,user}){
+  const[stats,setStats]=useState(null);const[loading,setLoading]=useState(true);const[exporting,setExporting]=useState(false);const[restoreFile,setRestoreFile]=useState(null);const[restoreInfo,setRestoreInfo]=useState(null);const[checking,setChecking]=useState(false);
+  useEffect(()=>{api("/backup/stats","GET",null,token).then(d=>{setStats(d.stats);setLoading(false);}).catch(()=>setLoading(false));},[token]);
+  const exportBackup=async()=>{setExporting(true);try{const res=await fetch(`${API}/backup/export`,{headers:{Authorization:`Bearer ${token}`}});if(!res.ok)throw new Error("Export failed");const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");const cd=res.headers.get("Content-Disposition")||"";const fname=cd.match(/filename="([^"]+)"/)?.[1]||`taxpro_backup_${new Date().toISOString().split("T")[0]}.json`;a.href=url;a.download=fname;a.click();URL.revokeObjectURL(url);toast("✅ Backup downloaded!","success");}catch(e){toast(e.message,"error");}setExporting(false);};
+  const checkFile=async()=>{if(!restoreFile)return;setChecking(true);try{const text=await restoreFile.text();const backup=JSON.parse(text);const d=await api("/backup/restore-check","POST",{backup},token);if(d.success)setRestoreInfo({...d,filename:restoreFile.name});else toast(d.message,"error");}catch(e){toast("Invalid file: "+e.message,"error");}setChecking(false);};
+  const DATA_ITEMS=[{key:"clients",icon:"👥",label:"Parties"},{key:"invoices",icon:"📄",label:"Invoices"},{key:"products",icon:"📦",label:"Products"},{key:"notices",icon:"🔔",label:"Notices"},{key:"returns",icon:"📋",label:"Returns"},{key:"bank_transactions",icon:"🏦",label:"Bank Txns"},{key:"vouchers",icon:"✏",label:"Vouchers"},{key:"hsn_codes",icon:"🏷",label:"HSN Codes"},{key:"payments",icon:"💰",label:"Payments"}];
+  return(<div><div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:16}}><div style={{fontSize:14,fontWeight:700,color:"#58a6ff",marginBottom:6}}>💾 Data Backup & Restore</div><div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.8}}>• Exports ALL your data as a single JSON file<br/>• Store in Google Drive, Email or USB<br/>• <span style={{color:"#e3b341",fontWeight:600}}>Recommended: Take backup weekly</span></div></div>
+  <div style={S.twoCol}>
+    <div style={S.card}><div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:14}}>📤 Export Backup</div>
+      {loading?<Spinner/>:<div style={{marginBottom:14}}><div style={{fontSize:11,color:"#8B949E",marginBottom:8,fontWeight:600}}>YOUR DATA</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>{DATA_ITEMS.map(item=>(<div key={item.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:"#0D1117",borderRadius:6}}><span style={{fontSize:11,color:"#C9D1D9"}}>{item.icon} {item.label}</span><span style={{fontSize:12,fontWeight:700,color:stats?.[item.key]>0?"#3fb950":"#8B949E"}}>{stats?.[item.key]||0}</span></div>))}</div><div style={{display:"flex",justifyContent:"space-between",padding:"8px 10px",background:"#1F6FEB18",borderRadius:8,marginTop:8,border:"1px solid #1f4872"}}><span style={{color:"#58a6ff",fontWeight:600}}>Total Records</span><span style={{color:"#58a6ff",fontWeight:800,fontSize:15}}>{Object.values(stats||{}).reduce((a,v)=>a+v,0).toLocaleString()}</span></div></div>}
+      <button onClick={exportBackup} disabled={exporting} style={{...S.btnG,width:"100%",padding:"12px",fontSize:14,opacity:exporting?0.6:1}}>{exporting?"⏳ Preparing...":"💾 Download Backup (.json)"}</button>
+      <div style={{fontSize:11,color:"#8B949E",textAlign:"center",marginTop:6}}>{user?.firm_name} · {new Date().toLocaleDateString("en-IN")}</div>
     </div>
-    {activeView==="acc-groups"   &&<LedgerGroups      token={token} toast={toast} companyId={company.id}/>}
-    {activeView==="acc-ledgers"  &&<LedgerManager     token={token} toast={toast} companyId={company.id}/>}
-    {activeView==="acc-vouchers" &&<VoucherEntry      token={token} toast={toast} companyId={company.id}/>}
-    {activeView==="acc-reports"  &&<AccountingReports token={token} toast={toast} companyId={company.id}/>}
-  </div>);
+    <div style={S.card}><div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:14}}>📥 Restore from Backup</div>
+      <div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:12}}><div style={{fontSize:12,color:"#e3b341"}}>⚠️ Restore verifies the file and shows what's inside. Data will be merged safely.</div></div>
+      <div style={{border:"2px dashed #30363D",borderRadius:10,padding:20,textAlign:"center",marginBottom:12,background:restoreFile?"#0d2818":"#0D1117",borderColor:restoreFile?"#238636":"#30363D"}}>
+        {restoreFile?(<div><div style={{fontSize:22,marginBottom:4}}>📂</div><div style={{fontWeight:600,color:"#3fb950",fontSize:13}}>{restoreFile.name}</div><button onClick={()=>{setRestoreFile(null);setRestoreInfo(null);}} style={{...S.btnGhost,marginTop:8,fontSize:11}}>Remove</button></div>):(<div><div style={{fontSize:32,marginBottom:8}}>📂</div><label style={{...S.btnGhost,cursor:"pointer",display:"inline-block"}}>Browse Backup File<input type="file" accept=".json" onChange={e=>{setRestoreFile(e.target.files[0]);setRestoreInfo(null);}} style={{display:"none"}}/></label></div>)}
+      </div>
+      {restoreFile&&!restoreInfo&&<button onClick={checkFile} disabled={checking} style={{...S.btn,width:"100%",opacity:checking?0.6:1}}>{checking?"Checking...":"Verify Backup"}</button>}
+      {restoreInfo&&(<div style={{...S.card,background:"#0d2818",border:"1px solid #238636"}}><div style={{fontSize:13,fontWeight:700,color:"#3fb950",marginBottom:8}}>✅ Valid Backup!</div><div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.9}}><div>Firm: <b>{restoreInfo.firm}</b></div><div>Exported: {new Date(restoreInfo.exported_at).toLocaleDateString("en-IN")}</div></div><div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginTop:8}}><div style={{fontSize:11,color:"#e3b341"}}>Contact support to restore data.</div></div></div>)}
+    </div>
+  </div></div>);
 }
 
 const NAV=[
-  {key:"dashboard",    icon:"🏠",label:"Dashboard",           group:"MAIN"},
-  {key:"sales",        icon:"📄",label:"Sales Invoices",       group:"ACCOUNTING"},
-  {key:"purchases",    icon:"🧾",label:"Purchase Bills",       group:"ACCOUNTING"},
-  {key:"parties",      icon:"👥",label:"Parties",              group:"ACCOUNTING"},
-  {key:"products",     icon:"📦",label:"Products & Stock",     group:"ACCOUNTING"},
-  {key:"bank",         icon:"🏦",label:"Bank Statement",       group:"ACCOUNTING"},
-  {key:"reports",      icon:"📈",label:"Reports",              group:"ACCOUNTING"},
-  {key:"gst-clients",  icon:"🏢",label:"GST Clients",          group:"GST"},
-  {key:"notices",      icon:"🔔",label:"Notice Manager",       group:"GST"},
-  {key:"returns",      icon:"📋",label:"Return Tracker",       group:"GST"},
-  {key:"reconcile",    icon:"⇄", label:"Reconciliation",       group:"GST"},
-  {key:"gstr2a",       icon:"📥",label:"GSTR-2A Import",       group:"GST"},
-  {key:"gstr3b",       icon:"📑",label:"GSTR-3B",              group:"GST FILING"},
-  {key:"gstr1",        icon:"📤",label:"GSTR-1",               group:"GST FILING"},
-  {key:"einvoice",     icon:"🔖",label:"E-Invoice",            group:"GST FILING"},
-  {key:"ewaybill",     icon:"🚛",label:"E-Way Bill",           group:"GST FILING"},
-  {key:"acc-companies",icon:"🏗", label:"Companies",           group:"TALLY"},
-  {key:"acc-groups",   icon:"🗂", label:"Chart of Accounts",   group:"TALLY"},
-  {key:"acc-ledgers",  icon:"📒",label:"Ledgers",              group:"TALLY"},
-  {key:"acc-vouchers", icon:"✏", label:"Voucher Entry",        group:"TALLY"},
-  {key:"acc-reports",  icon:"📊",label:"Accounting Reports",   group:"TALLY"},
-  {key:"calculator",   icon:"🧮",label:"GST Calculator",       group:"TOOLS"},
-  {key:"calendar",     icon:"📅",label:"Due Date Calendar",    group:"TOOLS"},
-  {key:"reply",        icon:"✍", label:"Notice Reply AI",      group:"TOOLS"},
-  {key:"ai",           icon:"✦", label:"AI Assistant",         group:"TOOLS"},
-  {key:"hsn-manager",  icon:"🏷", label:"HSN/SAC Codes",        group:"ACCOUNT"},
-  {key:"backup",        icon:"💾",label:"Backup & Restore",       group:"ACCOUNT"},
-  {key:"settings",     icon:"⚙", label:"Settings",             group:"ACCOUNT"},
+  {key:"dashboard",    icon:"🏠",label:"Dashboard",            group:"MAIN"},
+  {key:"sales",        icon:"📄",label:"Sales Invoices",        group:"INVOICING"},
+  {key:"purchases",    icon:"🧾",label:"Purchase Bills",        group:"INVOICING"},
+  {key:"parties",      icon:"👥",label:"Parties & Customers",   group:"INVOICING"},
+  {key:"products",     icon:"📦",label:"Products & Stock",      group:"INVOICING"},
+  {key:"bank",         icon:"🏦",label:"Bank Statement",        group:"INVOICING"},
+  {key:"reports",      icon:"📈",label:"Invoice Reports",       group:"INVOICING"},
+  {key:"gst-clients",  icon:"🏢",label:"GST Clients",           group:"GST"},
+  {key:"notices",      icon:"🔔",label:"Notice Manager",        group:"GST"},
+  {key:"returns",      icon:"📋",label:"Return Tracker",        group:"GST"},
+  {key:"reconcile",    icon:"⇄", label:"Reconciliation",        group:"GST"},
+  {key:"gstr2a",       icon:"📥",label:"GSTR-2A Import",        group:"GST"},
+  {key:"gstr3b",       icon:"📑",label:"GSTR-3B",               group:"GST FILING"},
+  {key:"gstr1",        icon:"📤",label:"GSTR-1",                group:"GST FILING"},
+  {key:"einvoice",     icon:"🔖",label:"E-Invoice",             group:"GST FILING"},
+  {key:"ewaybill",     icon:"🚛",label:"E-Way Bill",            group:"GST FILING"},
+  {key:"acc-companies",icon:"🏗", label:"Manage Companies",     group:"ACCOUNTING"},
+  {key:"acc-groups",   icon:"🗂", label:"Chart of Accounts",    group:"ACCOUNTING"},
+  {key:"acc-ledgers",  icon:"📒",label:"Ledger Manager",        group:"ACCOUNTING"},
+  {key:"acc-vouchers", icon:"✏", label:"Voucher Entry (F4-F9)", group:"ACCOUNTING"},
+  {key:"acc-reports",  icon:"📊",label:"Financial Reports",     group:"ACCOUNTING"},
+  {key:"calculator",   icon:"🧮",label:"GST Calculator",        group:"TOOLS"},
+  {key:"calendar",     icon:"📅",label:"Compliance Calendar",   group:"TOOLS"},
+  {key:"reply",        icon:"✍", label:"Notice Reply AI",       group:"TOOLS"},
+  {key:"ai",           icon:"✦", label:"AI Assistant",          group:"TOOLS"},
+  {key:"hsn-manager",  icon:"🏷", label:"HSN/SAC Codes",         group:"SETUP"},
+  {key:"backup",       icon:"💾",label:"Backup & Restore",       group:"SETUP"},
+  {key:"settings",     icon:"⚙", label:"Settings",              group:"SETUP"},
 ];
 
 const TITLES={
   dashboard:"Dashboard",
   sales:"Sales Invoices",purchases:"Purchase Bills",parties:"Parties & Customers",
-  products:"Products & Stock",bank:"Bank Statement Import",reports:"Reports & Analytics",
+  products:"Products & Stock",bank:"Bank Statement Import",reports:"Invoice Reports",
   "gst-clients":"GST Clients",notices:"Notice Manager",returns:"Return Filing Tracker",
   reconcile:"GST Reconciliation",gstr2a:"GSTR-2A Import",
   gstr3b:"GSTR-3B Summary Return",gstr1:"GSTR-1 Outward Supplies",
   einvoice:"E-Invoice Generation",ewaybill:"E-Way Bill",
-  "acc-companies":"Companies","acc-groups":"Chart of Accounts",
+  "acc-companies":"Company Management","acc-groups":"Chart of Accounts",
   "acc-ledgers":"Ledger Manager","acc-vouchers":"Voucher Entry (F4–F9)",
-  "acc-reports":"Accounting Reports",
+  "acc-reports":"Financial Reports",
   calculator:"GST Calculator",calendar:"Compliance Calendar",
-  reply:"Notice Reply Generator",ai:"AI Assistant","hsn-manager":"HSN/SAC Code Library",backup:"Backup & Restore",settings:"Settings",
+  reply:"Notice Reply Generator",ai:"AI Assistant",
+  "hsn-manager":"HSN/SAC Codes",backup:"Backup & Restore",settings:"Settings",
 };
 
 export default function App(){
-  const[user,setUser]   =useState(()=>{try{return JSON.parse(localStorage.getItem("taxpro_user"));}catch{return null;}});
-  const[token,setToken] =useState(()=>localStorage.getItem("taxpro_token")||"");
-  const[view,setView]   =useState("dashboard");
-  const[toast,setToast] =useState(null);
+  const[user,setUser]    =useState(()=>{try{return JSON.parse(localStorage.getItem("taxpro_user"));}catch{return null;}});
+  const[token,setToken]  =useState(()=>localStorage.getItem("taxpro_token")||"");
+  const[view,setView]    =useState("dashboard");
+  const[toast,setToast]  =useState(null);
   const[collapsed,setCollapsed]=useState(false);
   const[accentColor,setAccentColor]=useState(()=>localStorage.getItem("taxpro_accent")||"#1F6FEB");
+  const[activeCompany,setActiveCompany]=useState(()=>{try{return JSON.parse(localStorage.getItem("taxpro_company"));}catch{return null;}});
 
   useEffect(()=>{localStorage.setItem("taxpro_accent",accentColor);},[accentColor]);
+
+  const selectCompany=c=>{
+    setActiveCompany(c);
+    if(c)localStorage.setItem("taxpro_company",JSON.stringify(c));
+    else localStorage.removeItem("taxpro_company");
+  };
 
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),4500);};
   const logout=()=>{localStorage.removeItem("taxpro_token");localStorage.removeItem("taxpro_user");localStorage.removeItem("taxpro_company");setUser(null);setToken("");};
@@ -1556,21 +1850,29 @@ export default function App(){
 
   const ACC_VIEWS=["acc-companies","acc-groups","acc-ledgers","acc-vouchers","acc-reports"];
   const isAcc=ACC_VIEWS.includes(view);
+  const GROUPS=["MAIN","INVOICING","GST","GST FILING","ACCOUNTING","TOOLS","SETUP"];
+  const GROUP_LABELS={"MAIN":"","INVOICING":"INVOICING","GST":"GST COMPLIANCE","GST FILING":"GST FILING","ACCOUNTING":"TALLY ACCOUNTING","TOOLS":"TOOLS","SETUP":"SETUP"};
 
   return(
     <div style={S.app}>
-      {/* ── SIDEBAR ── */}
       <aside style={{...S.sidebar,width:collapsed?58:220,minWidth:collapsed?58:220,transition:"width 0.2s"}}>
         <div style={{padding:"12px",borderBottom:"1px solid #21262D",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          {!collapsed&&<div><div style={{fontSize:15,fontWeight:800,color:"#E6EDF3"}}>🛡️ TaxPro</div><div style={{fontSize:10,color:"#8B949E"}}>Complete Suite v4.0</div></div>}
+          {!collapsed&&<div><div style={{fontSize:15,fontWeight:800,color:"#E6EDF3"}}>🛡️ TaxPro</div><div style={{fontSize:10,color:"#8B949E"}}>Accounting + GST v4</div></div>}
           <button onClick={()=>setCollapsed(c=>!c)} style={{background:"none",border:"none",color:"#8B949E",cursor:"pointer",fontSize:18,padding:4,marginLeft:collapsed?"auto":0}}>{collapsed?"▶":"◀"}</button>
         </div>
         <nav style={{flex:1,padding:"4px 0",overflowY:"auto"}}>
-          {["MAIN","ACCOUNTING","GST","GST FILING","TALLY","TOOLS","ACCOUNT"].map(g=>(
+          {GROUPS.map(g=>(
             <div key={g}>
-              {!collapsed&&<div style={{fontSize:9,color:"#444C56",padding:"8px 12px 2px",letterSpacing:1,fontWeight:600}}>
-                {g==="TALLY"?"TALLY ACCOUNTING":g==="GST FILING"?"GST FILING":g==="ACCOUNT"?"MY ACCOUNT":g}
-              </div>}
+              {!collapsed&&GROUP_LABELS[g]&&<div style={{fontSize:9,color:"#444C56",padding:"8px 12px 2px",letterSpacing:1,fontWeight:600}}>{GROUP_LABELS[g]}</div>}
+              {!collapsed&&g==="ACCOUNTING"&&(
+                <div style={{margin:"4px 8px 6px",background:activeCompany?"#0c1d2e":"#1a0a0a",border:`1px solid ${activeCompany?"#1f4872":"#6e1c1c"}`,borderRadius:8,padding:"7px 10px",cursor:"pointer"}} onClick={()=>setView("acc-companies")}>
+                  {activeCompany?(
+                    <div><div style={{fontSize:9,color:"#58a6ff",fontWeight:600,marginBottom:1}}>🏢 ACTIVE COMPANY</div><div style={{fontSize:11,fontWeight:700,color:"#E6EDF3",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{activeCompany.name}</div><div style={{fontSize:9,color:"#8B949E"}}>FY {activeCompany.fy_start?.substring(0,4)}–{activeCompany.fy_end?.substring(2,4)} · Click to change</div></div>
+                  ):(
+                    <div style={{textAlign:"center"}}><div style={{fontSize:11,color:"#f85149",fontWeight:600}}>⚠ No Company Selected</div><div style={{fontSize:9,color:"#8B949E"}}>Click to select / create</div></div>
+                  )}
+                </div>
+              )}
               {NAV.filter(n=>n.group===g).map(n=>(
                 <button key={n.key} onClick={()=>setView(n.key)} title={collapsed?n.label:""} style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:collapsed?"8px 0":"7px 12px",border:"none",background:view===n.key?"rgba(31,111,235,0.12)":"transparent",borderLeft:view===n.key?`2px solid ${accentColor}`:"2px solid transparent",color:view===n.key?"#58a6ff":"#8B949E",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:view===n.key?600:400,textAlign:"left",justifyContent:collapsed?"center":"flex-start",transition:"all 0.15s"}}>
                   <span style={{fontSize:15,flexShrink:0}}>{n.icon}</span>
@@ -1580,22 +1882,22 @@ export default function App(){
             </div>
           ))}
         </nav>
-        {!collapsed&&(
-          <div style={{padding:"10px 12px",borderTop:"1px solid #21262D"}}>
-            <div style={{fontSize:11,fontWeight:600,color:"#E6EDF3",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.firm_name||user.name}</div>
-            <div style={{fontSize:10,color:"#8B949E",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.email}</div>
-            <div style={{display:"flex",gap:6,marginTop:8}}>
-              <button onClick={()=>setView("settings")} style={{...S.btnGhost,flex:1,fontSize:11,padding:"5px"}}>⚙ Settings</button>
-              <button onClick={logout} style={{...S.btnDanger,flex:1,fontSize:11,padding:"5px"}}>Logout</button>
-            </div>
+        {!collapsed&&<div style={{padding:"10px 12px",borderTop:"1px solid #21262D"}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#E6EDF3",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.firm_name||user.name}</div>
+          <div style={{fontSize:10,color:"#8B949E",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.email}</div>
+          <div style={{display:"flex",gap:6,marginTop:8}}>
+            <button onClick={()=>setView("settings")} style={{...S.btnGhost,flex:1,fontSize:11,padding:"5px"}}>⚙ Settings</button>
+            <button onClick={logout} style={{...S.btnDanger,flex:1,fontSize:11,padding:"5px"}}>Logout</button>
           </div>
-        )}
+        </div>}
       </aside>
-
-      {/* ── MAIN ── */}
       <div style={S.main}>
         <div style={S.topbar}>
-          <span style={{fontSize:14,fontWeight:600,color:"#E6EDF3"}}>{TITLES[view]||view}</span>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:14,fontWeight:600,color:"#E6EDF3"}}>{TITLES[view]||view}</span>
+            {isAcc&&activeCompany&&<span style={{fontSize:11,background:"#0c1d2e",border:"1px solid #1f4872",color:"#58a6ff",padding:"2px 10px",borderRadius:20,fontWeight:600}}>🏢 {activeCompany.name}</span>}
+            {isAcc&&!activeCompany&&view!=="acc-companies"&&<span style={{fontSize:11,background:"#2d0e0e",border:"1px solid #6e1c1c",color:"#f85149",padding:"2px 10px",borderRadius:20,fontWeight:600,cursor:"pointer"}} onClick={()=>setView("acc-companies")}>⚠ Select Company</span>}
+          </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             <span style={{fontSize:11,color:"#8B949E"}}>Welcome, {user.name}</span>
             {badge("Live","green")}
@@ -1603,184 +1905,37 @@ export default function App(){
           </div>
         </div>
         <div style={S.content}>
-          {view==="dashboard"   &&<Dashboard       token={token}/>}
-          {view==="sales"       &&<InvoiceList     token={token} toast={showToast} type="SALES"/>}
-          {view==="purchases"   &&<InvoiceList     token={token} toast={showToast} type="PURCHASE"/>}
-          {view==="parties"     &&<Parties         token={token} toast={showToast}/>}
-          {view==="products"    &&<Products        token={token} toast={showToast}/>}
-          {view==="bank"        &&<BankStatement   token={token} toast={showToast}/>}
-          {view==="reports"     &&<Reports         token={token}/>}
-          {view==="gst-clients" &&<GSTClients      token={token} toast={showToast}/>}
-          {view==="notices"     &&<Notices         token={token} toast={showToast}/>}
-          {view==="returns"     &&<Returns         token={token} toast={showToast}/>}
-          {view==="reconcile"   &&<Reconciliation  token={token} toast={showToast}/>}
-          {view==="gstr2a"      &&<GSTR2AImport    token={token} toast={showToast}/>}
-          {view==="gstr3b"      &&<GSTR3B          token={token} toast={showToast}/>}
-          {view==="gstr1"       &&<GSTR1           token={token} toast={showToast}/>}
-          {view==="einvoice"    &&<EInvoice        token={token} toast={showToast}/>}
-          {view==="ewaybill"    &&<EWayBill        token={token} toast={showToast}/>}
-          {isAcc                &&<AccountingShell token={token} toast={showToast} activeView={view}/>}
-          {view==="calculator"  &&<GSTCalculator/>}
-          {view==="calendar"    &&<ComplianceCalendar/>}
-          {view==="reply"       &&<NoticeReply     token={token}/>}
-          {view==="ai"          &&<AIAssistant     token={token}/>}
-          {view==="hsn-manager" &&<HSNManager       token={token} toast={showToast}/>}
-          {view==="backup"      &&<BackupRestore    token={token} toast={showToast} user={user}/>}
-          {view==="settings"    &&<Settings        token={token} user={user} toast={showToast} onLogout={logout} accentColor={accentColor} setAccentColor={setAccentColor}/>}
+          {view==="dashboard"    &&<Dashboard        token={token}/>}
+          {view==="sales"        &&<InvoiceList      token={token} toast={showToast} type="SALES"/>}
+          {view==="purchases"    &&<InvoiceList      token={token} toast={showToast} type="PURCHASE"/>}
+          {view==="parties"      &&<Parties          token={token} toast={showToast}/>}
+          {view==="products"     &&<Products         token={token} toast={showToast}/>}
+          {view==="bank"         &&<BankStatement    token={token} toast={showToast}/>}
+          {view==="reports"      &&<Reports          token={token}/>}
+          {view==="gst-clients"  &&<GSTClients       token={token} toast={showToast}/>}
+          {view==="notices"      &&<Notices          token={token} toast={showToast}/>}
+          {view==="returns"      &&<Returns          token={token} toast={showToast}/>}
+          {view==="reconcile"    &&<Reconciliation   token={token} toast={showToast}/>}
+          {view==="gstr2a"       &&<GSTR2AImport     token={token} toast={showToast}/>}
+          {view==="gstr3b"       &&<GSTR3B           token={token} toast={showToast}/>}
+          {view==="gstr1"        &&<GSTR1            token={token} toast={showToast}/>}
+          {view==="einvoice"     &&<EInvoice         token={token} toast={showToast}/>}
+          {view==="ewaybill"     &&<EWayBill         token={token} toast={showToast}/>}
+          {view==="acc-companies"&&<CompanyManager   token={token} toast={showToast} onSelect={selectCompany} selectedCompany={activeCompany}/>}
+          {view==="acc-groups"   &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><LedgerGroups      token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
+          {view==="acc-ledgers"  &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><LedgerManager     token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
+          {view==="acc-vouchers" &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><VoucherEntry      token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
+          {view==="acc-reports"  &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><AccountingReports token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
+          {view==="calculator"   &&<GSTCalculator/>}
+          {view==="calendar"     &&<ComplianceCalendar/>}
+          {view==="reply"        &&<NoticeReply      token={token}/>}
+          {view==="ai"           &&<AIAssistant      token={token}/>}
+          {view==="hsn-manager"  &&<HSNManager       token={token} toast={showToast}/>}
+          {view==="backup"       &&<BackupRestore    token={token} toast={showToast} user={user}/>}
+          {view==="settings"     &&<Settings         token={token} user={user} toast={showToast} onLogout={logout} accentColor={accentColor} setAccentColor={setAccentColor}/>}
         </div>
       </div>
-
       {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
     </div>
   );
-}
-
-// ── DATA BACKUP & RESTORE ─────────────────────────────────────────────────
-function BackupRestore({token,toast,user}){
-  const[stats,setStats]=useState(null);const[loading,setLoading]=useState(true);const[exporting,setExporting]=useState(false);const[restoreFile,setRestoreFile]=useState(null);const[restoreInfo,setRestoreInfo]=useState(null);const[checking,setChecking]=useState(false);
-
-  useEffect(()=>{
-    api("/backup/stats","GET",null,token).then(d=>{setStats(d.stats);setLoading(false);}).catch(()=>setLoading(false));
-  },[token]);
-
-  const exportBackup=async()=>{
-    setExporting(true);
-    try{
-      const res=await fetch(`${API}/backup/export`,{headers:{Authorization:`Bearer ${token}`}});
-      if(!res.ok)throw new Error("Export failed");
-      const blob=await res.blob();
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");
-      const cd=res.headers.get("Content-Disposition")||"";
-      const fname=cd.match(/filename="([^"]+)"/)?.[1]||`taxpro_backup_${new Date().toISOString().split("T")[0]}.json`;
-      a.href=url;a.download=fname;a.click();
-      URL.revokeObjectURL(url);
-      toast("✅ Backup downloaded successfully!","success");
-    }catch(e){toast(e.message,"error");}
-    setExporting(false);
-  };
-
-  const checkRestoreFile=async()=>{
-    if(!restoreFile)return;
-    setChecking(true);
-    try{
-      const text=await restoreFile.text();
-      const backup=JSON.parse(text);
-      const d=await api("/backup/restore-check","POST",{backup},token);
-      if(d.success){setRestoreInfo({...d,backup,filename:restoreFile.name});}
-      else toast(d.message,"error");
-    }catch(e){toast("Invalid backup file: "+e.message,"error");}
-    setChecking(false);
-  };
-
-  const DATA_ITEMS=[
-    {key:"clients",icon:"👥",label:"Parties / Clients"},
-    {key:"invoices",icon:"📄",label:"Invoices & Bills"},
-    {key:"products",icon:"📦",label:"Products & Stock"},
-    {key:"notices",icon:"🔔",label:"GST Notices"},
-    {key:"returns",icon:"📋",label:"GST Returns"},
-    {key:"reconciliation",icon:"⇄",label:"Reconciliation"},
-    {key:"bank_transactions",icon:"🏦",label:"Bank Transactions"},
-    {key:"vouchers",icon:"✏",label:"Accounting Vouchers"},
-    {key:"hsn_codes",icon:"🏷",label:"HSN/SAC Codes"},
-    {key:"payments",icon:"💰",label:"Payments"},
-    {key:"challans",icon:"🧾",label:"Challans"},
-  ];
-
-  return(<div>
-    {/* Header */}
-    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:16}}>
-      <div style={{fontSize:14,fontWeight:700,color:"#58a6ff",marginBottom:8}}>💾 Data Backup & Restore</div>
-      <div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.8}}>
-        • Backup exports ALL your data as a single JSON file<br/>
-        • Store backup safely — Google Drive, Email, USB drive<br/>
-        • Restore on a new device or after data loss<br/>
-        • <span style={{color:"#e3b341",fontWeight:600}}>Recommended: Take backup weekly or before any major changes</span>
-      </div>
-    </div>
-
-    <div style={S.twoCol}>
-      {/* Export Section */}
-      <div style={S.card}>
-        <div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:14}}>📤 Export Backup</div>
-        
-        {/* Stats */}
-        {loading?<Spinner/>:(
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,color:"#8B949E",marginBottom:8,fontWeight:600}}>YOUR DATA SUMMARY</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-              {DATA_ITEMS.map(item=>(
-                <div key={item.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",background:"#0D1117",borderRadius:6}}>
-                  <span style={{fontSize:12,color:"#C9D1D9"}}>{item.icon} {item.label}</span>
-                  <span style={{fontSize:12,fontWeight:700,color:stats?.[item.key]>0?"#3fb950":"#8B949E"}}>{stats?.[item.key]||0}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",padding:"10px",background:"#1F6FEB18",borderRadius:8,marginTop:10,border:"1px solid #1f4872"}}>
-              <span style={{color:"#58a6ff",fontWeight:600,fontSize:13}}>Total Records</span>
-              <span style={{color:"#58a6ff",fontWeight:800,fontSize:16}}>{Object.values(stats||{}).reduce((a,v)=>a+v,0).toLocaleString()}</span>
-            </div>
-          </div>
-        )}
-
-        <button onClick={exportBackup} disabled={exporting} style={{...S.btnG,width:"100%",padding:"13px",fontSize:14,opacity:exporting?0.6:1}}>
-          {exporting?"⏳ Preparing backup...":"💾 Download Backup (.json)"}
-        </button>
-        <div style={{fontSize:11,color:"#8B949E",textAlign:"center",marginTop:8}}>
-          Firm: {user?.firm_name} | {new Date().toLocaleDateString("en-IN")}
-        </div>
-      </div>
-
-      {/* Restore Section */}
-      <div style={S.card}>
-        <div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:14}}>📥 Restore from Backup</div>
-        <div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14}}>
-          <div style={{fontSize:12,color:"#e3b341",lineHeight:1.7}}>⚠️ <strong>Warning:</strong> Restore will verify and show you what's in the backup. Current data will NOT be deleted — backup data will be added/merged.</div>
-        </div>
-        <div style={{border:"2px dashed #30363D",borderRadius:10,padding:20,textAlign:"center",marginBottom:14,background:restoreFile?"#0d2818":"#0D1117",borderColor:restoreFile?"#238636":"#30363D"}}>
-          {restoreFile?(
-            <div><div style={{fontSize:24,marginBottom:6}}>📂</div><div style={{fontWeight:600,color:"#3fb950",fontSize:13}}>{restoreFile.name}</div><div style={{fontSize:11,color:"#8B949E",marginTop:4}}>{(restoreFile.size/1024).toFixed(1)} KB</div><button onClick={()=>{setRestoreFile(null);setRestoreInfo(null);}} style={{...S.btnGhost,marginTop:10,fontSize:11}}>Remove</button></div>
-          ):(
-            <div><div style={{fontSize:36,marginBottom:8}}>📂</div><div style={{fontSize:13,color:"#C9D1D9",marginBottom:12}}>Select your TaxPro backup .json file</div><label style={{...S.btnGhost,cursor:"pointer",display:"inline-block"}}>Browse Backup File<input type="file" accept=".json" onChange={e=>{setRestoreFile(e.target.files[0]);setRestoreInfo(null);}} style={{display:"none"}}/></label></div>
-          )}
-        </div>
-
-        {restoreFile&&!restoreInfo&&(
-          <button onClick={checkRestoreFile} disabled={checking} style={{...S.btn,width:"100%",opacity:checking?0.6:1}}>
-            {checking?"Checking...":"Verify Backup File"}
-          </button>
-        )}
-
-        {restoreInfo&&(
-          <div style={{...S.card,background:"#0d2818",border:"1px solid #238636"}}>
-            <div style={{fontSize:13,fontWeight:700,color:"#3fb950",marginBottom:10}}>✅ Valid Backup File!</div>
-            <div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.9}}>
-              <div>📁 Firm: <span style={{color:"#E6EDF3",fontWeight:600}}>{restoreInfo.firm}</span></div>
-              <div>📅 Exported: <span style={{color:"#E6EDF3"}}>{new Date(restoreInfo.exported_at).toLocaleDateString("en-IN")}</span></div>
-              <div style={{marginTop:8}}>
-                {Object.entries(restoreInfo.stats||{}).map(([k,v])=>(<div key={k} style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#8B949E"}}>{k}</span><span style={{color:"#3fb950",fontWeight:600}}>{v} records</span></div>))}
-              </div>
-            </div>
-            <div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginTop:10,marginBottom:10}}>
-              <div style={{fontSize:12,color:"#e3b341"}}>Restore feature coming soon — contact support to restore data manually.</div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-
-    {/* Backup Tips */}
-    <div style={S.card}>
-      <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:10}}>📋 Backup Tips</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-        {[{icon:"📅",title:"When to Backup",desc:"Before filing GST returns, after creating many invoices, weekly schedule recommended"},{icon:"📁",title:"Where to Store",desc:"Google Drive, Dropbox, Email to yourself, USB drive — keep 2-3 copies"},{icon:"🔒",title:"Security",desc:"Backup contains sensitive business data. Store securely. Do not share publicly."}].map(tip=>(
-          <div key={tip.title} style={{background:"#0D1117",borderRadius:8,padding:12}}>
-            <div style={{fontSize:20,marginBottom:6}}>{tip.icon}</div>
-            <div style={{fontSize:12,fontWeight:600,color:"#E6EDF3",marginBottom:4}}>{tip.title}</div>
-            <div style={{fontSize:11,color:"#8B949E",lineHeight:1.7}}>{tip.desc}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>);
 }
