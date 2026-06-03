@@ -674,7 +674,9 @@ function InvoiceList({token,toast,type,companyId}){
   const label=type==="SALES"?"Invoice":"Bill";
   return(<div>
     {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:13}}>⚠️</span><span style={{fontSize:12,color:"#e3b341"}}>No company selected — showing all data. <b>Select a company</b> from TALLY ACCOUNTING section to isolate data.</span></div>}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)"}},gap:12,marginBottom:14}}>
+    <div style={{
+        display:"grid",
+        gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
       {[{l:"Total "+label+"s",v:invoices.length,c:"#58a6ff"},{l:"Total Amount",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.total_amount||0),0)),c:"#3fb950"},{l:"Outstanding",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.balance_due||0),0)),c:"#e3b341"}].map(k=>(
         <div key={k.l} style={S.kpi}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l.includes("Amount")||k.l.includes("Out")?14:22,fontWeight:700,color:k.c}}>{k.v}</div></div>
       ))}
