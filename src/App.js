@@ -484,7 +484,7 @@ function Parties({token,toast}){
   const[parties,setParties]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showModal,setShowModal]=useState(false);const[editing,setEditing]=useState(null);const[saving,setSaving]=useState(false);const[ledger,setLedger]=useState(null);
   const[form,setForm]=useState({name:"",gstin:"",state:"",type:"Customer",phone:"",email:"",address:"",city:"",pincode:"",pan:"",credit_limit:"0"});
   const STATES=["Delhi","Maharashtra","Gujarat","Uttar Pradesh","Rajasthan","Karnataka","Tamil Nadu","West Bengal","Madhya Pradesh","Andhra Pradesh","Telangana","Kerala","Punjab","Haryana","Bihar","Odisha","Uttarakhand","Goa","Other"];
-  const load=useCallback(()=>{setLoading(true);api(`/parties${search?`?search=${encodeURIComponent(search)}`:""}`, "GET",null,token).then(d=>{setParties(d.parties||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,search]);
+  const load=useCallback(()=>{setLoading(true);api(`/parties${search?`?search=${encodeURIComponent(search)}`:""}${companyId?(search?"&":"?")+"company_id="+companyId:""}`, "GET",null,token).then(d=>{setParties(d.parties||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,search]);
   useEffect(()=>{load();},[load]);
   const openAdd=()=>{setEditing(null);setForm({name:"",gstin:"",state:"",type:"Customer",phone:"",email:"",address:"",city:"",pincode:"",pan:"",credit_limit:"0"});setShowModal(true);};
   const openEdit=p=>{setEditing(p);setForm({name:p.name,gstin:p.gstin||"",state:p.state||"",type:p.type||"Customer",phone:p.phone||"",email:p.email||"",address:p.address||"",city:p.city||"",pincode:p.pincode||"",pan:p.pan||"",credit_limit:p.credit_limit||"0"});setShowModal(true);};
@@ -566,7 +566,7 @@ function InvoiceForm({token,toast,type,onClose,onSave}){
   const removeItem=i=>{if(items.length===1)return;setItems(p=>p.filter((_,idx)=>idx!==i));};
   const calcItem=item=>{const qty=parseFloat(item.qty)||0,rate=parseFloat(item.rate)||0,disc=parseFloat(item.discount_pct)||0,gr=parseFloat(item.gst_rate)||0;const gross=qty*rate,ta=gross-gross*disc/100;const igst=form.is_igst?ta*gr/100:0,cgst=!form.is_igst?ta*(gr/2)/100:0,sgst=!form.is_igst?ta*(gr/2)/100:0;return{taxable:ta,igst,cgst,sgst,total:ta+igst+cgst+sgst};};
   const totals=items.reduce((acc,item)=>{const c=calcItem(item);return{taxable:acc.taxable+c.taxable,igst:acc.igst+c.igst,cgst:acc.cgst+c.cgst,sgst:acc.sgst+c.sgst,total:acc.total+c.total};},{taxable:0,igst:0,cgst:0,sgst:0,total:0});
-  const save=async()=>{if(!form.party_name)return toast("Party name required","error");if(items.some(i=>!i.name))return toast("All items need a name","error");setSaving(true);try{await api("/invoices","POST",{...form,items:items.map(item=>{const c=calcItem(item);return{...item,...c};})},token);toast(`${type==="SALES"?"Invoice":"Bill"} created!`,"success");onSave();}catch(e){toast(e.message,"error");}setSaving(false);};
+  const save=async()=>{if(!form.party_name)return toast("Party name required","error");if(items.some(i=>!i.name))return toast("All items need a name","error");setSaving(true);try{await api("/invoices","POST",{...form,company_id:companyId||null,items:items.map(item=>{const c=calcItem(item);return{...item,...c};})},token);toast(`${type==="SALES"?"Invoice":"Bill"} created!`,"success");onSave();}catch(e){toast(e.message,"error");}setSaving(false);};
   return(<Modal title={`New ${type==="SALES"?"Sales Invoice":"Purchase Bill"}`} onClose={onClose} wide>
     <div style={S.twoCol}>
       <div>
@@ -616,7 +616,7 @@ function InvoiceForm({token,toast,type,onClose,onSave}){
 
 function InvoiceList({token,toast,type}){
   const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showForm,setShowForm]=useState(false);const[viewing,setViewing]=useState(null);const[payModal,setPayModal]=useState(null);const[payForm,setPayForm]=useState({amount:"",method:"CASH",reference_no:"",payment_date:todayStr()});
-  const load=useCallback(()=>{setLoading(true);api(`/invoices?type=${type}${search?`&search=${encodeURIComponent(search)}`:""}`, "GET",null,token).then(d=>{setInvoices(d.invoices||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,type,search]);
+  const load=useCallback(()=>{setLoading(true);api(`/invoices?type=${type}${search?`&search=${encodeURIComponent(search)}`:""}${companyId?`&company_id=${companyId}`:""}`, "GET",null,token).then(d=>{setInvoices(d.invoices||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,type,search]);
   useEffect(()=>{load();},[load]);
   const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/invoices/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
   const viewInv=async id=>{try{const d=await api(`/invoices/${id}`,"GET",null,token);setViewing(d.invoice);}catch(e){toast(e.message,"error");}};
@@ -657,7 +657,7 @@ function InvoiceList({token,toast,type}){
         ))}</tbody></table>
       )}</div>
     )}
-    {showForm&&<InvoiceForm token={token} toast={toast} type={type} onClose={()=>setShowForm(false)} onSave={()=>{setShowForm(false);load();}}/>}
+    {showForm&&<InvoiceForm token={token} toast={toast} type={type} companyId={companyId} onClose={()=>setShowForm(false)} onSave={()=>{setShowForm(false);load();}}/>}
     {viewing&&(<Modal title={`${label}: ${viewing.invoice_no}`} onClose={()=>setViewing(null)} wide>
       <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center"}}>
         <button onClick={()=>printInv(viewing)} style={S.btnG}>🖨 Print/PDF</button>
@@ -689,13 +689,13 @@ function InvoiceList({token,toast,type}){
   </div>);
 }
 
-function Products({token,toast}){
+function Products({token,toast,companyId}){
   const[products,setProducts]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showModal,setShowModal]=useState(false);const[editing,setEditing]=useState(null);const[saving,setSaving]=useState(false);const[stockModal,setStockModal]=useState(null);const[stockForm,setStockForm]=useState({type:"IN",qty:"",rate:"",notes:""});
   const[form,setForm]=useState({name:"",code:"",hsn_sac:"",unit:"PCS",category:"",gst_rate:"18",purchase_price:"0",sale_price:"0",stock_qty:"0",min_stock:"0",description:"",is_service:false});
   const UNITS=["PCS","KG","LTR","MTR","BOX","NOS","SET","DZ","PACK","TON"];
-  const load=useCallback(()=>{setLoading(true);api(`/products${search?`?search=${encodeURIComponent(search)}`:""}`, "GET",null,token).then(d=>{setProducts(d.products||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,search]);
+  const load=useCallback(()=>{setLoading(true);api(`/products${search?`?search=${encodeURIComponent(search)}`:""}${companyId?(search?"&":"?")+"company_id="+companyId:""}`, "GET",null,token).then(d=>{setProducts(d.products||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,search]);
   useEffect(()=>{load();},[load]);
-  const save=async()=>{if(!form.name)return toast("Name required","error");setSaving(true);try{if(editing){await api(`/products/${editing.id}`,"PUT",form,token);toast("Updated","success");}else{await api("/products","POST",form,token);toast("Added","success");}setShowModal(false);load();}catch(e){toast(e.message,"error");}setSaving(false);};
+  const save=async()=>{if(!form.name)return toast("Name required","error");setSaving(true);try{if(editing){await api(`/products/${editing.id}`,"PUT",form,token);toast("Updated","success");}else{await api("/products","POST",{...form,company_id:companyId||null},token);toast("Added","success");}setShowModal(false);load();}catch(e){toast(e.message,"error");}setSaving(false);};
   const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/products/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
   const adjustStock=async()=>{try{await api(`/products/${stockModal.id}/stock`,"POST",stockForm,token);toast("Stock updated","success");setStockModal(null);load();}catch(e){toast(e.message,"error");}};
   return(<div>
@@ -937,10 +937,10 @@ function BankStatement({token,toast}){
   </div>);
 }
 
-function Reports({token}){
+function Reports({token,companyId}){
   const[rtype,setRtype]=useState("gst-summary");const[from,setFrom]=useState(new Date(new Date().getFullYear(),3,1).toISOString().split("T")[0]);const[to,setTo]=useState(todayStr());const[data,setData]=useState(null);const[loading,setLoading]=useState(false);
   const fR=n=>`Rs.${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
-  const load=async()=>{setLoading(true);setData(null);try{const d=await api(`/reports/${rtype}?from_date=${from}&to_date=${to}`,"GET",null,token);setData(d);}catch(e){setData({error:e.message});}setLoading(false);};
+  const load=async()=>{setLoading(true);setData(null);try{const d=await api(`/reports/${rtype}?from_date=${from}&to_date=${to}${companyId?`&company_id=${companyId}`:""}`, "GET",null,token);setData(d);}catch(e){setData({error:e.message});}setLoading(false);};
   const printReport=()=>{const w=window.open("","_blank");w.document.write(`<html><head><title>TaxPro Report</title><style>body{font-family:Arial;margin:20px;font-size:12px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:7px;}th{background:#1F6FEB;color:white;}</style></head><body><h2>TaxPro — ${rtype}</h2><p>Period: ${from} to ${to}</p>${document.getElementById("rpt-area")?.innerHTML||""}</body></html>`);w.document.close();w.print();};
   return(<div>
     <div style={{display:"flex",gap:10,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
@@ -1658,8 +1658,8 @@ export default function App(){
         <div style={S.topbar}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:14,fontWeight:600,color:"#E6EDF3"}}>{TITLES[view]||view}</span>
-            {isAcc&&activeCompany&&<span style={{fontSize:11,background:"#0c1d2e",border:"1px solid #1f4872",color:"#58a6ff",padding:"2px 10px",borderRadius:20,fontWeight:600}}>🏢 {activeCompany.name}</span>}
-            {isAcc&&!activeCompany&&view!=="acc-companies"&&<span style={{fontSize:11,background:"#2d0e0e",border:"1px solid #6e1c1c",color:"#f85149",padding:"2px 10px",borderRadius:20,fontWeight:600,cursor:"pointer"}} onClick={()=>setView("acc-companies")}>⚠ Select Company</span>}
+            {activeCompany&&<span style={{fontSize:11,background:"#0c1d2e",border:"1px solid #1f4872",color:"#58a6ff",padding:"2px 10px",borderRadius:20,fontWeight:600,cursor:"pointer"}} onClick={()=>setView("acc-companies")}>🏢 {activeCompany.name}</span>}
+            {!activeCompany&&<span style={{fontSize:11,background:"#2d1b00",border:"1px solid #9e6a03",color:"#e3b341",padding:"2px 10px",borderRadius:20,fontWeight:600,cursor:"pointer"}} onClick={()=>setView("acc-companies")}>⚠ Select Company to isolate data</span>}
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             <span style={{fontSize:11,color:"#8B949E"}}>Welcome, {user.name}</span>
@@ -1669,12 +1669,12 @@ export default function App(){
         </div>
         <div style={S.content}>
           {view==="dashboard"    &&<Dashboard        token={token}/>}
-          {view==="sales"        &&<InvoiceList      token={token} toast={showToast} type="SALES"/>}
-          {view==="purchases"    &&<InvoiceList      token={token} toast={showToast} type="PURCHASE"/>}
-          {view==="parties"      &&<Parties          token={token} toast={showToast}/>}
-          {view==="products"     &&<Products         token={token} toast={showToast}/>}
-          {view==="bank"         &&<BankStatement    token={token} toast={showToast}/>}
-          {view==="reports"      &&<Reports          token={token}/>}
+          {view==="sales"        &&<InvoiceList      token={token} toast={showToast} type="SALES"     companyId={activeCompany?.id}/>}
+          {view==="purchases"    &&<InvoiceList      token={token} toast={showToast} type="PURCHASE"  companyId={activeCompany?.id}/>}
+          {view==="parties"      &&<Parties          token={token} toast={showToast}                  companyId={activeCompany?.id}/>}
+          {view==="products"     &&<Products         token={token} toast={showToast}                  companyId={activeCompany?.id}/>}
+          {view==="bank"         &&<BankStatement    token={token} toast={showToast}                  companyId={activeCompany?.id}/>}
+          {view==="reports"      &&<Reports          token={token}                                     companyId={activeCompany?.id}/>}
           {view==="gst-clients"  &&<GSTClients       token={token} toast={showToast}/>}
           {view==="notices"      &&<Notices          token={token} toast={showToast}/>}
           {view==="returns"      &&<Returns          token={token} toast={showToast}/>}
