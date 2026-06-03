@@ -1732,3 +1732,4 @@ function BackupRestore({token,toast,user}){
     </div>
   );
 }
+export default App;
