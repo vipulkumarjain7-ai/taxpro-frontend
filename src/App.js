@@ -674,9 +674,7 @@ function InvoiceList({token,toast,type,companyId}){
   const label=type==="SALES"?"Invoice":"Bill";
   return(<div>
     {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:13}}>⚠️</span><span style={{fontSize:12,color:"#e3b341"}}>No company selected — showing all data. <b>Select a company</b> from TALLY ACCOUNTING section to isolate data.</span></div>}
-    <div style={{
-        display:"grid",
-        gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
       {[{l:"Total "+label+"s",v:invoices.length,c:"#58a6ff"},{l:"Total Amount",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.total_amount||0),0)),c:"#3fb950"},{l:"Outstanding",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.balance_due||0),0)),c:"#e3b341"}].map(k=>(
         <div key={k.l} style={S.kpi}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l.includes("Amount")||k.l.includes("Out")?14:22,fontWeight:700,color:k.c}}>{k.v}</div></div>
       ))}
@@ -1635,6 +1633,91 @@ function BackupRestore({token,toast,user}){
     setExporting(false);
   }
 
+  const checkFile=async()=>{if(!restoreFile)return;setChecking(true);try{const text=await restoreFile.text();const backup=JSON.parse(text);const d=await api("/backup/restore-check","POST",{backup},token);if(d.success)setRestoreInfo({...d,filename:restoreFile.name});else toast(d.message,"error");}catch(e){toast("Invalid file: "+e.message,"error");}setChecking(false);};
+  const DATA_ITEMS=[{key:"clients",icon:"👥",label:"Parties"},{key:"invoices",icon:"📄",label:"Invoices"},{key:"products",icon:"📦",label:"Products"},{key:"notices",icon:"🔔",label:"Notices"},{key:"returns",icon:"📋",label:"Returns"},{key:"bank_transactions",icon:"🏦",label:"Bank Txns"},{key:"vouchers",icon:"✏",label:"Vouchers"},{key:"hsn_codes",icon:"🏷",label:"HSN Codes"},{key:"payments",icon:"💰",label:"Payments"}];
+  return(<div>
+    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:16}}><div style={{fontSize:14,fontWeight:700,color:"#58a6ff",marginBottom:6}}>💾 Data Backup & Restore</div><div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.8}}>• Exports ALL your data as a ZIP file<br/>• Store in Google Drive, Email or USB<br/>• <span style={{color:"#e3b341",fontWeight:600}}>Recommended: Take backup weekly</span></div></div>
+    <div style={S.twoCol}>
+      <div style={S.card}><div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:14}}>📤 Export Backup</div>
+        {loading?<Spinner/>:<div style={{marginBottom:14}}><div style={{fontSize:11,color:"#8B949E",marginBottom:8,fontWeight:600}}>YOUR DATA</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>{DATA_ITEMS.map(item=>(<div key={item.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:"#0D1117",borderRadius:6}}><span style={{fontSize:11,color:"#C9D1D9"}}>{item.icon} {item.label}</span><span style={{fontSize:12,fontWeight:700,color:stats?.[item.key]>0?"#3fb950":"#8B949E"}}>{stats?.[item.key]||0}</span></div>))}</div><div style={{display:"flex",justifyContent:"space-between",padding:"8px 10px",background:"#1F6FEB18",borderRadius:8,marginTop:8,border:"1px solid #1f4872"}}><span style={{color:"#58a6ff",fontWeight:600}}>Total Records</span><span style={{color:"#58a6ff",fontWeight:800,fontSize:15}}>{Object.values(stats||{}).reduce((a,v)=>a+v,0).toLocaleString()}</span></div></div>}
+        <button onClick={exportBackup} disabled={exporting} style={{...S.btnG,width:"100%",padding:"12px",fontSize:14,opacity:exporting?0.6:1}}>{exporting?"⏳ Creating ZIP...":"💾 Download Backup (.zip)"}</button>
+        <div style={{fontSize:11,color:"#8B949E",textAlign:"center",marginTop:6}}>{user?.firm_name} · {new Date().toLocaleDateString("en-IN")}</div>
+      </div>
+      <div style={S.card}><div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:14}}>📥 Restore from Backup</div>
+        <div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:12}}><div style={{fontSize:12,color:"#e3b341"}}>⚠️ Restore will merge backup data safely.</div></div>
+        <div style={{border:"2px dashed #30363D",borderRadius:10,padding:20,textAlign:"center",marginBottom:12,background:restoreFile?"#0d2818":"#0D1117",borderColor:restoreFile?"#238636":"#30363D"}}>
+          {restoreFile?(<div><div style={{fontSize:22,marginBottom:4}}>📂</div><div style={{fontWeight:600,color:"#3fb950",fontSize:13}}>{restoreFile.name}</div><button onClick={()=>{setRestoreFile(null);setRestoreInfo(null);}} style={{...S.btnGhost,marginTop:8,fontSize:11}}>Remove</button></div>):(<div><div style={{fontSize:32,marginBottom:8}}>📂</div><label style={{...S.btnGhost,cursor:"pointer",display:"inline-block"}}>Browse File<input type="file" accept=".json,.zip" onChange={e=>{setRestoreFile(e.target.files[0]);setRestoreInfo(null);}} style={{display:"none"}}/></label></div>)}
+        </div>
+        {restoreFile&&!restoreInfo&&<button onClick={checkFile} disabled={checking} style={{...S.btn,width:"100%",opacity:checking?0.6:1}}>{checking?"Checking...":"Verify Backup"}</button>}
+        {restoreInfo&&(<div style={{...S.card,background:"#0d2818",border:"1px solid #238636"}}><div style={{fontSize:13,fontWeight:700,color:"#3fb950",marginBottom:8}}>✅ Valid Backup!</div><div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.9}}><div>Firm: <b>{restoreInfo.firm}</b></div><div>Exported: {new Date(restoreInfo.exported_at).toLocaleDateString("en-IN")}</div></div>
+          <button onClick={async()=>{if(!window.confirm("Restore data?"))return;try{const text=await restoreFile.text();const backup=JSON.parse(text);const d=await api("/backup/restore","POST",{backup},token);if(d.success){toast(d.message,"success");setRestoreInfo(null);setRestoreFile(null);setTimeout(()=>window.location.reload(),2000);}else toast(d.message,"error");}catch(e){toast("Restore failed: "+e.message,"error");}}} style={{...S.btnG,width:"100%",marginTop:10}}>✅ Restore All Data</button>
+        </div>)}
+      </div>
+    </div>
+  </div>);
+}
+
+
+const NAV=[
+  {key:"dashboard",    icon:"🏠",label:"Dashboard",            group:"MAIN"},
+  {key:"sales",        icon:"📄",label:"Sales Invoices",        group:"INVOICING"},
+  {key:"purchases",    icon:"🧾",label:"Purchase Bills",        group:"INVOICING"},
+  {key:"parties",      icon:"👥",label:"Parties & Customers",   group:"INVOICING"},
+  {key:"products",     icon:"📦",label:"Products & Stock",      group:"INVOICING"},
+  {key:"bank",         icon:"🏦",label:"Bank Statement",        group:"INVOICING"},
+  {key:"reports",      icon:"📈",label:"Invoice Reports",       group:"INVOICING"},
+  {key:"gst-clients",  icon:"🏢",label:"GST Clients",           group:"GST"},
+  {key:"notices",      icon:"🔔",label:"Notice Manager",        group:"GST"},
+  {key:"returns",      icon:"📋",label:"Return Tracker",        group:"GST"},
+  {key:"reconcile",    icon:"⇄", label:"Reconciliation",        group:"GST"},
+  {key:"gstr2a",       icon:"📥",label:"GSTR-2A Import",        group:"GST"},
+  {key:"gstr3b",       icon:"📑",label:"GSTR-3B",               group:"GST FILING"},
+  {key:"gstr1",        icon:"📤",label:"GSTR-1",                group:"GST FILING"},
+  {key:"einvoice",     icon:"🔖",label:"E-Invoice",             group:"GST FILING"},
+  {key:"ewaybill",     icon:"🚛",label:"E-Way Bill",            group:"GST FILING"},
+  {key:"acc-companies",icon:"🏗", label:"Manage Companies",     group:"ACCOUNTING"},
+  {key:"acc-groups",   icon:"🗂", label:"Chart of Accounts",    group:"ACCOUNTING"},
+  {key:"acc-ledgers",  icon:"📒",label:"Ledger Manager",        group:"ACCOUNTING"},
+  {key:"acc-vouchers", icon:"✏", label:"Voucher Entry (F4-F9)", group:"ACCOUNTING"},
+  {key:"acc-reports",  icon:"📊",label:"Financial Reports",     group:"ACCOUNTING"},
+  {key:"calculator",   icon:"🧮",label:"GST Calculator",        group:"TOOLS"},
+  {key:"calendar",     icon:"📅",label:"Compliance Calendar",   group:"TOOLS"},
+  {key:"reply",        icon:"✍", label:"Notice Reply AI",       group:"TOOLS"},
+  {key:"ai",           icon:"✦", label:"AI Assistant",          group:"TOOLS"},
+  {key:"hsn-manager",  icon:"🏷", label:"HSN/SAC Codes",         group:"SETUP"},
+  {key:"backup",       icon:"💾",label:"Backup & Restore",       group:"SETUP"},
+  {key:"settings",     icon:"⚙", label:"Settings",              group:"SETUP"},
+];
+
+const TITLES={
+  dashboard:"Dashboard",
+  sales:"Sales Invoices",purchases:"Purchase Bills",parties:"Parties & Customers",
+  products:"Products & Stock",bank:"Bank Statement Import",reports:"Invoice Reports",
+  "gst-clients":"GST Clients",notices:"Notice Manager",returns:"Return Filing Tracker",
+  reconcile:"GST Reconciliation",gstr2a:"GSTR-2A Import",
+  gstr3b:"GSTR-3B Summary Return",gstr1:"GSTR-1 Outward Supplies",
+  einvoice:"E-Invoice Generation",ewaybill:"E-Way Bill",
+  "acc-companies":"Company Management","acc-groups":"Chart of Accounts",
+  "acc-ledgers":"Ledger Manager","acc-vouchers":"Voucher Entry (F4–F9)",
+  "acc-reports":"Financial Reports",
+  calculator:"GST Calculator",calendar:"Compliance Calendar",
+  reply:"Notice Reply Generator",ai:"AI Assistant",
+  "hsn-manager":"HSN/SAC Codes",backup:"Backup & Restore",settings:"Settings",
+};
+
+export default function App(){
+  useEffect(()=>{fetch(`${API.replace('/api','')}/health`).catch(()=>{});},[]);
+  const[user,setUser]    =useState(()=>{try{return JSON.parse(localStorage.getItem("taxpro_user"));}catch{return null;}});
+  const[token,setToken]  =useState(()=>localStorage.getItem("taxpro_token")||"");
+  const[view,setView]    =useState("dashboard");
+  const[toast,setToast]  =useState(null);
+  const[collapsed,setCollapsed]=useState(false);
+  const[accentColor,setAccentColor]=useState(()=>localStorage.getItem("taxpro_accent")||"#1F6FEB");
+  const[activeCompany,setActiveCompany]=useState(()=>{try{return JSON.parse(localStorage.getItem("taxpro_company"));}catch{return null;}});
+
+  useEffect(()=>{localStorage.setItem("taxpro_accent",accentColor);},[accentColor]);
+
+  const selectCompany=c=>{setActiveCompany(c);if(c)localStorage.setItem("taxpro_company",JSON.stringify(c));else localStorage.removeItem("taxpro_company");};
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),4500);};
   const logout=()=>{localStorage.removeItem("taxpro_token");localStorage.removeItem("taxpro_user");localStorage.removeItem("taxpro_company");setUser(null);setToken("");};
   const onAuth=(u,t)=>{setUser(u);setToken(t);};
@@ -1659,11 +1742,8 @@ function BackupRestore({token,toast,user}){
               {!collapsed&&GROUP_LABELS[g]&&<div style={{fontSize:9,color:"#444C56",padding:"8px 12px 2px",letterSpacing:1,fontWeight:600}}>{GROUP_LABELS[g]}</div>}
               {!collapsed&&g==="ACCOUNTING"&&(
                 <div style={{margin:"4px 8px 6px",background:activeCompany?"#0c1d2e":"#1a0a0a",border:`1px solid ${activeCompany?"#1f4872":"#6e1c1c"}`,borderRadius:8,padding:"7px 10px",cursor:"pointer"}} onClick={()=>setView("acc-companies")}>
-                  {activeCompany?(
-                    <div><div style={{fontSize:9,color:"#58a6ff",fontWeight:600,marginBottom:1}}>🏢 ACTIVE COMPANY</div><div style={{fontSize:11,fontWeight:700,color:"#E6EDF3",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{activeCompany.name}</div><div style={{fontSize:9,color:"#8B949E"}}>FY {activeCompany.fy_start?.substring(0,4)}–{activeCompany.fy_end?.substring(2,4)} · Click to change</div></div>
-                  ):(
-                    <div style={{textAlign:"center"}}><div style={{fontSize:11,color:"#f85149",fontWeight:600}}>⚠ No Company Selected</div><div style={{fontSize:9,color:"#8B949E"}}>Click to select / create</div></div>
-                  )}
+                  {activeCompany?(<div><div style={{fontSize:9,color:"#58a6ff",fontWeight:600,marginBottom:1}}>🏢 ACTIVE COMPANY</div><div style={{fontSize:11,fontWeight:700,color:"#E6EDF3",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{activeCompany.name}</div><div style={{fontSize:9,color:"#8B949E"}}>FY {activeCompany.fy_start?.substring(0,4)}–{activeCompany.fy_end?.substring(2,4)} · Click to change</div></div>)
+                  :(<div style={{textAlign:"center"}}><div style={{fontSize:11,color:"#f85149",fontWeight:600}}>⚠ No Company Selected</div><div style={{fontSize:9,color:"#8B949E"}}>Click to select / create</div></div>)}
                 </div>
               )}
               {NAV.filter(n=>n.group===g).map(n=>(
@@ -1684,12 +1764,13 @@ function BackupRestore({token,toast,user}){
           </div>
         </div>}
       </aside>
+
       <div style={S.main}>
         <div style={S.topbar}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:14,fontWeight:600,color:"#E6EDF3"}}>{TITLES[view]||view}</span>
             {activeCompany&&<span style={{fontSize:11,background:"#0c1d2e",border:"1px solid #1f4872",color:"#58a6ff",padding:"2px 10px",borderRadius:20,fontWeight:600,cursor:"pointer"}} onClick={()=>setView("acc-companies")}>🏢 {activeCompany.name}</span>}
-            {!activeCompany&&<span style={{fontSize:11,background:"#2d1b00",border:"1px solid #9e6a03",color:"#e3b341",padding:"2px 10px",borderRadius:20,fontWeight:600,cursor:"pointer"}} onClick={()=>setView("acc-companies")}>⚠ Select Company to isolate data</span>}
+            {!activeCompany&&<span style={{fontSize:11,background:"#2d1b00",border:"1px solid #9e6a03",color:"#e3b341",padding:"2px 10px",borderRadius:20,fontWeight:600,cursor:"pointer"}} onClick={()=>setView("acc-companies")}>⚠ Select Company</span>}
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             <span style={{fontSize:11,color:"#8B949E"}}>Welcome, {user.name}</span>
@@ -1699,12 +1780,12 @@ function BackupRestore({token,toast,user}){
         </div>
         <div style={S.content}>
           {view==="dashboard"    &&<Dashboard        token={token} companyId={activeCompany?.id}/>}
-          {view==="sales"        &&<InvoiceList      token={token} toast={showToast} type="SALES"     companyId={activeCompany?.id}/>}
-          {view==="purchases"    &&<InvoiceList      token={token} toast={showToast} type="PURCHASE"  companyId={activeCompany?.id}/>}
-          {view==="parties"      &&<Parties          token={token} toast={showToast}                  companyId={activeCompany?.id}/>}
-          {view==="products"     &&<Products         token={token} toast={showToast}                  companyId={activeCompany?.id}/>}
-          {view==="bank"         &&<BankStatement    token={token} toast={showToast}                  companyId={activeCompany?.id}/>}
-          {view==="reports"      &&<Reports          token={token}                                     companyId={activeCompany?.id}/>}
+          {view==="sales"        &&<InvoiceList      token={token} toast={showToast} type="SALES"    companyId={activeCompany?.id}/>}
+          {view==="purchases"    &&<InvoiceList      token={token} toast={showToast} type="PURCHASE" companyId={activeCompany?.id}/>}
+          {view==="parties"      &&<Parties          token={token} toast={showToast}                 companyId={activeCompany?.id}/>}
+          {view==="products"     &&<Products         token={token} toast={showToast}                 companyId={activeCompany?.id}/>}
+          {view==="bank"         &&<BankStatement    token={token} toast={showToast}                 companyId={activeCompany?.id}/>}
+          {view==="reports"      &&<Reports          token={token}                                    companyId={activeCompany?.id}/>}
           {view==="gst-clients"  &&<GSTClients       token={token} toast={showToast}/>}
           {view==="notices"      &&<Notices          token={token} toast={showToast}/>}
           {view==="returns"      &&<Returns          token={token} toast={showToast}/>}
@@ -1732,4 +1813,3 @@ function BackupRestore({token,toast,user}){
     </div>
   );
 }
-export default App;
