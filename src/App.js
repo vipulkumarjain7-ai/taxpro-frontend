@@ -1009,7 +1009,7 @@ function BankStatement({token,toast,companyId}){
       <div style={{display:"flex",gap:0,marginBottom:20}}>{[{n:1,l:"Upload"},{n:2,l:"Preview"},{n:3,l:"Done"}].map((s,i)=>(<div key={s.n} style={{display:"flex",alignItems:"center",flex:1}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1}}><div style={{width:30,height:30,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,background:step>=s.n?"#1F6FEB":"#21262D",color:step>=s.n?"#fff":"#8B949E"}}>{step>s.n?"✓":s.n}</div><div style={{fontSize:11,color:step>=s.n?"#58a6ff":"#8B949E",marginTop:4}}>{s.l}</div></div>{i<2&&<div style={{height:2,flex:1,background:step>s.n?"#1F6FEB":"#21262D",marginBottom:18}}/>}</div>))}</div>
       {step===1&&(<div><div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}><div style={{fontSize:13,fontWeight:600,color:"#58a6ff",marginBottom:8}}>How to download Bank Statement PDF</div>{["Login to your bank's net banking","Go to Account Statement / e-Statement","Select date range","Download as PDF","Upload below — AI will auto-categorize!"].map((s,i)=>(<div key={i} style={{display:"flex",gap:10,padding:"3px 0",fontSize:12,color:"#C9D1D9"}}><span style={{color:"#1F6FEB",fontWeight:700}}>{i+1}.</span><span>{s}</span></div>))}</div>
       <div style={S.card}><div style={S.fg}><label style={S.label}>Bank Name</label><input style={S.input} placeholder="SBI, HDFC, ICICI..." value={bankName} onChange={e=>setBankName(e.target.value)}/></div><div style={{border:"2px dashed #30363D",borderRadius:10,padding:30,textAlign:"center",marginBottom:16,background:file?"#0d2818":"#0D1117",borderColor:file?"#238636":"#30363D"}}>{file?(<div><div style={{fontSize:28,marginBottom:8}}>✅</div><div style={{fontSize:13,fontWeight:600,color:"#3fb950"}}>{file.name}</div><button onClick={()=>setFile(null)} style={{...S.btnGhost,marginTop:10,fontSize:11}}>Remove</button></div>):(<div><div style={{fontSize:40,marginBottom:8}}>🏦</div><div style={{fontSize:13,color:"#C9D1D9",marginBottom:12}}>Drop Bank Statement PDF here</div><label style={{...S.btn,cursor:"pointer",display:"inline-block"}}>Choose PDF<input type="file" accept=".pdf" onChange={e=>setFile(e.target.files[0])} style={{display:"none"}}/></label></div>)}</div><button onClick={uploadPDF} disabled={!file||uploading} style={{...S.btn,width:"100%",opacity:!file||uploading?0.5:1}}>{uploading?"Reading PDF...":"Upload & Analyze →"}</button></div></div>)}
-      {step===2&&preview&&(<div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>{[{l:"Transactions",v:preview.total_txns,c:"#58a6ff"},{l:"Total Debit",v:fmtM(preview.total_debit),c:"#f85149"},{l:"Total Credit",v:fmtM(preview.total_credit),c:"#3fb950"},{l:"Net",v:fmtM(preview.total_credit-preview.total_debit),c:preview.total_credit>=preview.total_debit?"#3fb950":"#f85149"}].map(k=>(<div key={k.l} style={{...S.kpi,textAlign:"center"}}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l==="Transactions"?22:13,fontWeight:700,color:k.c}}>{k.v}</div></div>))}</div><div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:12}}><div style={{fontSize:12,color:"#3fb950"}}>✅ AI auto-categorized {preview.total_txns} transactions</div></div><div style={S.card}><div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:10}}>Preview (first 50)</div><table style={S.tbl}><thead><tr>{["Date","Description","Debit","Credit","Category"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{(preview.transactions||[]).slice(0,50).map((t,i)=>(<tr key={i}><td style={S.td}>{t.txn_date}</td><td style={{...S.td,maxWidth:200}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.description}</div></td><td style={{...S.td,color:"#f85149"}}>{t.debit>0?fmtM(t.debit):"—"}</td><td style={{...S.td,color:"#3fb950"}}>{t.credit>0?fmtM(t.credit):"—"}</td><td style={S.tdL}>{badge(t.category||"Uncategorized","gray")}</td></tr>))}</tbody></table></div><div style={{display:"flex",gap:10}}><button onClick={reset} style={{...S.btnGhost,flex:1}}>Back</button><button onClick={importDB} disabled={importing} style={{...S.btnG,flex:2,opacity:importing?0.5:1}}>{importing?"Importing...":"Import All"}</button></div></div>)}
+      {step===2&&preview&&(<div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>{[{l:"Transactions",v:preview.total_txns,c:"#58a6ff"},{l:"Total Debit",v:fmtM(preview.total_debit),c:"#f85149"},{l:"Total Credit",v:fmtM(preview.total_credit),c:"#3fb950"},{l:"Net",v:fmtM(preview.total_credit-preview.total_debit),c:preview.total_credit>=preview.total_debit?"#3fb950":"#f85149"}].map(k=>(<div key={k.l} style={{...S.kpi,textAlign:"center"}}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l==="Transactions"?22:13,fontWeight:700,color:k.c}}>{k.v}</div></div>))}</div><div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:12}}><div style={{fontSize:12,color:"#3fb950"}}>✅ AI auto-categorized {preview.total_txns} transactions</div></div><div style={S.card}><div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:10}}>Preview (first 50)</div><table style={S.tbl}><thead><tr>{["Date","Narration / Description","Debit","Credit","Category"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{(preview.transactions||[]).slice(0,50).map((t,i)=>(<tr key={i}><td style={S.td}>{t.txn_date}</td><td style={{...S.td,maxWidth:250}}><div style={{fontSize:12,color:"#E6EDF3",fontWeight:500,marginBottom:2}}>{t.description}</div>{t.category&&t.category!=="Uncategorized"&&<span style={{fontSize:10,color:"#8B949E"}}>{t.category}</span>}</td><td style={{...S.td,color:"#f85149"}}>{t.debit>0?fmtM(t.debit):"—"}</td><td style={{...S.td,color:"#3fb950"}}>{t.credit>0?fmtM(t.credit):"—"}</td><td style={S.tdL}>{badge(t.category||"Uncategorized","gray")}</td></tr>))}</tbody></table></div><div style={{display:"flex",gap:10}}><button onClick={reset} style={{...S.btnGhost,flex:1}}>Back</button><button onClick={importDB} disabled={importing} style={{...S.btnG,flex:2,opacity:importing?0.5:1}}>{importing?"Importing...":"Import All"}</button></div></div>)}
       {step===3&&(<div style={{textAlign:"center",padding:40}}>
       <div style={{fontSize:56,marginBottom:12}}>🎉</div>
       <div style={{fontSize:20,fontWeight:700,color:"#3fb950",marginBottom:8}}>Bank Statement Imported!</div>
@@ -1032,7 +1032,7 @@ function BankStatement({token,toast,companyId}){
     {viewMode==="history"&&(<div><div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:12,color:"#8B949E"}}>Filter:</span>{["all",...TYPES].map(t=>(<button key={t} onClick={()=>setFilterType(t)} style={{padding:"4px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,fontFamily:"inherit",borderColor:filterType===t?"#58a6ff":"#30363D",background:filterType===t?"#0c1d2e":"transparent",color:filterType===t?"#58a6ff":"#8B949E"}}>{t==="all"?"All":t}</button>))}<button onClick={loadTxns} style={{...S.btnGhost,marginLeft:"auto",fontSize:11}}>Refresh</button></div>
     <div style={S.card}>{transactions.length===0?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No transactions. Import first.</div>:(
       <table style={S.tbl}><thead><tr>{["Date","Description","Debit","Credit","Category","Type"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-      <tbody>{transactions.map(t=>(<tr key={t.id}><td style={S.td}>{t.txn_date}</td><td style={{...S.td,maxWidth:220}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={t.description}>{t.description}</div></td><td style={{...S.td,color:"#f85149",fontWeight:t.debit>0?600:400}}>{t.debit>0?fmtM(t.debit):"—"}</td><td style={{...S.td,color:"#3fb950",fontWeight:t.credit>0?600:400}}>{t.credit>0?fmtM(t.credit):"—"}</td><td style={S.td}><select value={t.category||"Uncategorized"} onChange={e=>updateCat(t.id,e.target.value,t.type)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{CATS.map(c=><option key={c}>{c}</option>)}</select></td><td style={S.tdL}><select value={t.type||"UNKNOWN"} onChange={e=>updateCat(t.id,t.category,e.target.value)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{TYPES.map(tp=><option key={tp}>{tp}</option>)}</select></td></tr>))}</tbody></table>
+      <tbody>{transactions.map(t=>(<tr key={t.id}><td style={S.td}>{t.txn_date}</td><td style={{...S.td,maxWidth:250}}><div style={{fontSize:12,color:"#E6EDF3",fontWeight:500,marginBottom:2,wordBreak:"break-word",lineHeight:1.4}}>{t.description}</div></td><td style={{...S.td,color:"#f85149",fontWeight:t.debit>0?600:400}}>{t.debit>0?fmtM(t.debit):"—"}</td><td style={{...S.td,color:"#3fb950",fontWeight:t.credit>0?600:400}}>{t.credit>0?fmtM(t.credit):"—"}</td><td style={S.td}><select value={t.category||"Uncategorized"} onChange={e=>updateCat(t.id,e.target.value,t.type)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{CATS.map(c=><option key={c}>{c}</option>)}</select></td><td style={S.tdL}><select value={t.type||"UNKNOWN"} onChange={e=>updateCat(t.id,t.category,e.target.value)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{TYPES.map(tp=><option key={tp}>{tp}</option>)}</select></td></tr>))}</tbody></table>
     )}</div></div>)}
   </div>);
 }
@@ -1681,6 +1681,122 @@ function BackupRestore({token,toast,user}){
 }
 
 
+
+// ── BANK RECONCILIATION (Tally-style) ──────────────────────────────────────
+function BankReconciliation({token,toast,companyId}){
+  const[txns,setTxns]=useState([]);const[loading,setLoading]=useState(true);const[summary,setSummary]=useState(null);const[filter,setFilter]=useState("all");const[search,setSearch]=useState("");const[fromDate,setFromDate]=useState("");const[toDate,setToDate]=useState("");const[autoMatching,setAutoMatching]=useState(false);const[viewMode,setViewMode]=useState("list");
+  const fR=n=>`Rs.${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
+
+  const load=useCallback(()=>{
+    setLoading(true);
+    let url=`/bank/reconciliation?${companyId?`company_id=${companyId}&`:""}`;
+    if(fromDate)url+=`from_date=${fromDate}&`;
+    if(toDate)url+=`to_date=${toDate}&`;
+    if(filter!=="all")url+=`status=${filter}`;
+    api(url,"GET",null,token).then(d=>{setTxns(d.transactions||[]);setSummary(d.summary);setLoading(false);}).catch(()=>setLoading(false));
+  },[token,companyId,filter,fromDate,toDate]);
+
+  useEffect(()=>{load();},[load]);
+
+  const reconcile=async(txn,voucherId=null)=>{
+    try{
+      await api("/bank/reconcile","POST",{txn_id:txn.id,voucher_id:voucherId,value_date:txn.txn_date},token);
+      toast("✅ Reconciled!","success");load();
+    }catch(e){toast(e.message,"error");}
+  };
+
+  const unreconcile=async txnId=>{
+    try{
+      await api(`/bank/reconcile/${txnId}`,"DELETE",null,token);
+      toast("Unreconciled","success");load();
+    }catch(e){toast(e.message,"error");}
+  };
+
+  const autoMatch=async()=>{
+    setAutoMatching(true);
+    try{
+      const d=await api(`/bank/reconcile/auto-match${companyId?`?company_id=${companyId}`:""}`, "GET",null,token);
+      toast(d.message,"success");load();
+    }catch(e){toast(e.message,"error");}
+    setAutoMatching(false);
+  };
+
+  const filtered=txns.filter(t=>
+    !search||t.description?.toLowerCase().includes(search.toLowerCase())||
+    t.voucher_no?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const reconRows=filtered.filter(t=>t.is_reconciled);
+  const unreconRows=filtered.filter(t=>!t.is_reconciled);
+
+  return(<div>
+    {/* Summary KPIs */}
+    {summary&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+      {[{l:"Total Txns",v:summary.total,c:"#58a6ff"},{l:"Reconciled",v:summary.reconciled,c:"#3fb950"},{l:"Unreconciled",v:summary.unreconciled,c:"#f85149"},{l:"Net Balance",v:fR(summary.net_balance),c:summary.net_balance>=0?"#3fb950":"#f85149"}].map(k=>(
+        <div key={k.l} style={S.kpi}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l==="Net Balance"?14:22,fontWeight:700,color:k.c}}>{k.v}</div></div>
+      ))}
+    </div>}
+
+    {/* Controls */}
+    <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+      {["all","unreconciled","reconciled"].map(f=>(<button key={f} onClick={()=>setFilter(f)} style={{padding:"5px 14px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:12,fontFamily:"inherit",borderColor:filter===f?"#58a6ff":"#30363D",background:filter===f?"#0c1d2e":"transparent",color:filter===f?"#58a6ff":"#8B949E"}}>{f==="all"?"All":f==="unreconciled"?"⚠ Unreconciled":"✅ Reconciled"}</button>))}
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search narration..." style={{...S.input,width:200}}/>
+      <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={{...S.input,width:140}}/>
+      <span style={{color:"#8B949E"}}>to</span>
+      <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={{...S.input,width:140}}/>
+      <button onClick={load} style={S.btnGhost}>🔄</button>
+      <button onClick={autoMatch} disabled={autoMatching} style={{...S.btn,marginLeft:"auto",opacity:autoMatching?0.6:1}}>{autoMatching?"Matching...":"⚡ Auto-Match"}</button>
+    </div>
+
+    {/* Unreconciled */}
+    {(filter==="all"||filter==="unreconciled")&&unreconRows.length>0&&(<div style={{marginBottom:16}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#f85149",marginBottom:8}}>
+        ⚠ Unreconciled ({unreconRows.length}) — {fR(unreconRows.reduce((a,t)=>a+t.debit,0))} Dr | {fR(unreconRows.reduce((a,t)=>a+t.credit,0))} Cr
+      </div>
+      <div style={S.card}><table style={S.tbl}><thead><tr>
+        {["Date","Narration","Withdrawal (Dr)","Deposit (Cr)","Category","Action"].map(h=><th key={h} style={S.th}>{h}</th>)}
+      </tr></thead><tbody>
+        {unreconRows.map(t=>(<tr key={t.id} style={{background:"rgba(248,81,73,0.04)"}}>
+          <td style={S.td}>{t.txn_date}</td>
+          <td style={{...S.td,maxWidth:250}}><div style={{fontSize:12,color:"#E6EDF3",fontWeight:500}}>{t.description}</div>{t.category&&<span style={{fontSize:10,color:"#8B949E"}}>{t.category}</span>}</td>
+          <td style={{...S.td,color:"#f85149",fontWeight:t.debit>0?700:400}}>{t.debit>0?fR(t.debit):"—"}</td>
+          <td style={{...S.td,color:"#3fb950",fontWeight:t.credit>0?700:400}}>{t.credit>0?fR(t.credit):"—"}</td>
+          <td style={S.td}>{badge(t.category||"Unknown","gray")}</td>
+          <td style={S.tdL}><button onClick={()=>reconcile(t)} style={{...S.btnG,fontSize:11,padding:"5px 10px"}}>✅ Reconcile</button></td>
+        </tr>))}
+      </tbody></table></div>
+    </div>)}
+
+    {/* Reconciled */}
+    {(filter==="all"||filter==="reconciled")&&reconRows.length>0&&(<div>
+      <div style={{fontSize:13,fontWeight:700,color:"#3fb950",marginBottom:8}}>
+        ✅ Reconciled ({reconRows.length})
+      </div>
+      <div style={S.card}><table style={S.tbl}><thead><tr>
+        {["Date","Narration","Dr","Cr","Voucher No","Reconciled","Action"].map(h=><th key={h} style={S.th}>{h}</th>)}
+      </tr></thead><tbody>
+        {reconRows.map(t=>(<tr key={t.id} style={{background:"rgba(63,185,80,0.04)"}}>
+          <td style={S.td}>{t.txn_date}</td>
+          <td style={{...S.td,maxWidth:200}}><div style={{fontSize:12,color:"#C9D1D9"}}>{t.description?.substring(0,60)}</div></td>
+          <td style={{...S.td,color:"#f85149"}}>{t.debit>0?fR(t.debit):"—"}</td>
+          <td style={{...S.td,color:"#3fb950"}}>{t.credit>0?fR(t.credit):"—"}</td>
+          <td style={{...S.td,color:"#58a6ff"}}>{t.voucher_no||"Manual"}</td>
+          <td style={S.td}>{t.reconciled_date}</td>
+          <td style={S.tdL}><button onClick={()=>unreconcile(t.id)} style={{...S.btnAmber,fontSize:11,padding:"4px 8px"}}>Undo</button></td>
+        </tr>))}
+      </tbody></table></div>
+    </div>)}
+
+    {!loading&&filtered.length===0&&<div style={{...S.card,textAlign:"center",padding:40}}>
+      <div style={{fontSize:40,marginBottom:12}}>🏦</div>
+      <div style={{fontSize:14,fontWeight:600,color:"#E6EDF3",marginBottom:8}}>No Bank Transactions</div>
+      <div style={{fontSize:12,color:"#8B949E"}}>Import a bank statement first from Bank Statement section.</div>
+    </div>}
+    {loading&&<Spinner/>}
+  </div>);
+}
+
+
 const NAV=[
   {key:"dashboard",    icon:"🏠",label:"Dashboard",            group:"MAIN"},
   {key:"sales",        icon:"📄",label:"Sales Invoices",        group:"ACCOUNTING"},
@@ -1720,7 +1836,7 @@ const TITLES={
   reconcile:"GST Reconciliation",gstr2a:"GSTR-2A Import",
   gstr3b:"GSTR-3B Summary Return",gstr1:"GSTR-1 Outward Supplies",
   einvoice:"E-Invoice Generation",ewaybill:"E-Way Bill",
-  "acc-companies":"Company Management","acc-groups":"Chart of Accounts",
+  "acc-companies":"Company Management","bank-recon":"Bank Reconciliation (Tally)","acc-groups":"Chart of Accounts",
   "acc-ledgers":"Ledger Manager","acc-vouchers":"Voucher Entry (F4–F9)",
   "acc-reports":"Financial Reports",
   calculator:"GST Calculator",calendar:"Compliance Calendar",
@@ -1808,6 +1924,7 @@ export default function App(){
           {view==="parties"      &&<Parties          token={token} toast={showToast}                 companyId={activeCompany?.id}/>}
           {view==="products"     &&<Products         token={token} toast={showToast}                 companyId={activeCompany?.id}/>}
           {view==="bank"         &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><BankStatement token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
+          {view==="bank-recon"   &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><BankReconciliation token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
           {view==="reports"      &&<Reports          token={token}                                    companyId={activeCompany?.id}/>}
           {view==="gst-clients"  &&<GSTClients       token={token} toast={showToast}/>}
           {view==="notices"      &&<Notices          token={token} toast={showToast}/>}
