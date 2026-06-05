@@ -458,6 +458,10 @@ function Dashboard({token,companyId}){
   useEffect(()=>{Promise.all([api(`/dashboard${companyId?`?company_id=${companyId}`:""}`,"GET",null,token).catch(()=>null),api(`/invoices/stats/summary${companyId?`?company_id=${companyId}`:""}`,"GET",null,token).catch(()=>null)]).then(([g,i])=>{setGst(g?.dashboard);setInv(i?.stats);setLoading(false);});},[token]);
   if(loading)return<Spinner/>;
   return(<div>
+    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14,padding:"14px 18px",display:"flex",alignItems:"center",gap:12}}>
+      <span style={{fontSize:24}}>⚠️</span>
+      <div><div style={{fontSize:13,fontWeight:700,color:"#e3b341"}}>No Active Company</div><div style={{fontSize:12,color:"#C9D1D9",marginTop:3}}>Select or create a company from <b>ACCOUNTING → Manage Companies</b> to see company-specific data.</div></div>
+    </div>}
     <div style={{marginBottom:10}}>{badge("Live Dashboard","blue")}</div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
       {[{label:"Monthly Sales",val:fmtM(inv?.monthly_sales||0),color:"#3fb950"},{label:"Monthly Purchases",val:fmtM(inv?.monthly_purchases||0),color:"#58a6ff"},{label:"Outstanding",val:fmtM(inv?.total_outstanding||0),color:"#e3b341"},{label:"Overdue",val:fmtM(inv?.overdue_amount||0),color:"#f85149"}].map(k=>(
@@ -987,24 +991,43 @@ function GSTR2AImport({token,toast}){
   </div>);
 }
 
-function BankStatement({token,toast}){
+function BankStatement({token,toast,companyId}){
   const[step,setStep]=useState(1);const[file,setFile]=useState(null);const[bankName,setBankName]=useState("");const[preview,setPreview]=useState(null);const[uploading,setUploading]=useState(false);const[importing,setImporting]=useState(false);const[transactions,setTransactions]=useState([]);const[viewMode,setViewMode]=useState("upload");const[filterType,setFilterType]=useState("all");
   const TYPES=["INCOME","EXPENSE","PURCHASE","TAX","BANK","TRANSFER","UNKNOWN"];
   const CATS=["Salary","Rent","Tax Payment","Utilities","Fund Transfer","Cash","Loan Payment","Interest","Bank Charges","Insurance","Purchase","Sales Receipt","Online Purchase","Fuel","Travel","Medical","Uncategorized"];
   const loadTxns=useCallback(()=>{api(`/bank/transactions${filterType!=="all"?`?type=${filterType}`:""}`, "GET",null,token).then(d=>setTransactions(d.transactions||[])).catch(()=>{});},[token,filterType]);
   useEffect(()=>{if(viewMode==="history")loadTxns();},[viewMode,loadTxns]);
   const uploadPDF=async()=>{if(!file)return toast("Select PDF","error");setUploading(true);try{const fd=new FormData();fd.append("file",file);if(bankName)fd.append("bank_name",bankName);const res=await fetch(`${API}/bank/upload`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});const data=await res.json();if(data.success){setPreview(data.preview);setStep(2);}else toast(data.message,"error");}catch(e){toast("Upload failed","error");}setUploading(false);};
-  const importDB=async()=>{if(!preview)return;setImporting(true);try{const data=await api("/bank/import","POST",{bank_name:bankName||preview.bank_name,account_no:"",transactions:preview.transactions},token);if(data.success){toast(data.message,"success");setStep(3);}else toast(data.message,"error");}catch(e){toast(e.message,"error");}setImporting(false);};
+  const importDB=async()=>{if(!preview)return;setImporting(true);try{const data=await api("/bank/import","POST",{bank_name:bankName||preview.bank_name,account_no:"",transactions:preview.transactions,company_id:companyId||null,create_vouchers:!!companyId},token);if(data.success){toast(data.message,"success");setStep(3);}else toast(data.message,"error");}catch(e){toast(e.message,"error");}setImporting(false);};
   const updateCat=async(id,category,type)=>{try{await api(`/bank/transactions/${id}`,"PATCH",{category,type},token);loadTxns();}catch(e){}};
   const reset=()=>{setFile(null);setPreview(null);setStep(1);};
   return(<div>
     <div style={{display:"flex",gap:6,marginBottom:16}}>{[{k:"upload",l:"📁 Import PDF"},{k:"history",l:"📊 Transactions"}].map(t=>(<button key={t.k} onClick={()=>setViewMode(t.k)} style={{padding:"7px 16px",borderRadius:8,border:"1px solid",cursor:"pointer",fontSize:12,fontFamily:"inherit",borderColor:viewMode===t.k?"#1F6FEB":"#30363D",background:viewMode===t.k?"#0c1d2e":"transparent",color:viewMode===t.k?"#58a6ff":"#8B949E",fontWeight:viewMode===t.k?600:400}}>{t.l}</button>))}</div>
     {viewMode==="upload"&&(<div>
+      {companyId?<div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:12,padding:"8px 14px"}}><span style={{fontSize:12,color:"#3fb950"}}>✅ After import, vouchers will be <b>auto-created</b> in the active company's accounting books.</span></div>
+      :<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:12,padding:"8px 14px"}}><span style={{fontSize:12,color:"#e3b341"}}>⚠️ No company selected. Select a company so entries get linked to it and vouchers are auto-created.</span></div>}
       <div style={{display:"flex",gap:0,marginBottom:20}}>{[{n:1,l:"Upload"},{n:2,l:"Preview"},{n:3,l:"Done"}].map((s,i)=>(<div key={s.n} style={{display:"flex",alignItems:"center",flex:1}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1}}><div style={{width:30,height:30,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,background:step>=s.n?"#1F6FEB":"#21262D",color:step>=s.n?"#fff":"#8B949E"}}>{step>s.n?"✓":s.n}</div><div style={{fontSize:11,color:step>=s.n?"#58a6ff":"#8B949E",marginTop:4}}>{s.l}</div></div>{i<2&&<div style={{height:2,flex:1,background:step>s.n?"#1F6FEB":"#21262D",marginBottom:18}}/>}</div>))}</div>
       {step===1&&(<div><div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}><div style={{fontSize:13,fontWeight:600,color:"#58a6ff",marginBottom:8}}>How to download Bank Statement PDF</div>{["Login to your bank's net banking","Go to Account Statement / e-Statement","Select date range","Download as PDF","Upload below — AI will auto-categorize!"].map((s,i)=>(<div key={i} style={{display:"flex",gap:10,padding:"3px 0",fontSize:12,color:"#C9D1D9"}}><span style={{color:"#1F6FEB",fontWeight:700}}>{i+1}.</span><span>{s}</span></div>))}</div>
       <div style={S.card}><div style={S.fg}><label style={S.label}>Bank Name</label><input style={S.input} placeholder="SBI, HDFC, ICICI..." value={bankName} onChange={e=>setBankName(e.target.value)}/></div><div style={{border:"2px dashed #30363D",borderRadius:10,padding:30,textAlign:"center",marginBottom:16,background:file?"#0d2818":"#0D1117",borderColor:file?"#238636":"#30363D"}}>{file?(<div><div style={{fontSize:28,marginBottom:8}}>✅</div><div style={{fontSize:13,fontWeight:600,color:"#3fb950"}}>{file.name}</div><button onClick={()=>setFile(null)} style={{...S.btnGhost,marginTop:10,fontSize:11}}>Remove</button></div>):(<div><div style={{fontSize:40,marginBottom:8}}>🏦</div><div style={{fontSize:13,color:"#C9D1D9",marginBottom:12}}>Drop Bank Statement PDF here</div><label style={{...S.btn,cursor:"pointer",display:"inline-block"}}>Choose PDF<input type="file" accept=".pdf" onChange={e=>setFile(e.target.files[0])} style={{display:"none"}}/></label></div>)}</div><button onClick={uploadPDF} disabled={!file||uploading} style={{...S.btn,width:"100%",opacity:!file||uploading?0.5:1}}>{uploading?"Reading PDF...":"Upload & Analyze →"}</button></div></div>)}
       {step===2&&preview&&(<div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>{[{l:"Transactions",v:preview.total_txns,c:"#58a6ff"},{l:"Total Debit",v:fmtM(preview.total_debit),c:"#f85149"},{l:"Total Credit",v:fmtM(preview.total_credit),c:"#3fb950"},{l:"Net",v:fmtM(preview.total_credit-preview.total_debit),c:preview.total_credit>=preview.total_debit?"#3fb950":"#f85149"}].map(k=>(<div key={k.l} style={{...S.kpi,textAlign:"center"}}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l==="Transactions"?22:13,fontWeight:700,color:k.c}}>{k.v}</div></div>))}</div><div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:12}}><div style={{fontSize:12,color:"#3fb950"}}>✅ AI auto-categorized {preview.total_txns} transactions</div></div><div style={S.card}><div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:10}}>Preview (first 50)</div><table style={S.tbl}><thead><tr>{["Date","Description","Debit","Credit","Category"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{(preview.transactions||[]).slice(0,50).map((t,i)=>(<tr key={i}><td style={S.td}>{t.txn_date}</td><td style={{...S.td,maxWidth:200}}><div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.description}</div></td><td style={{...S.td,color:"#f85149"}}>{t.debit>0?fmtM(t.debit):"—"}</td><td style={{...S.td,color:"#3fb950"}}>{t.credit>0?fmtM(t.credit):"—"}</td><td style={S.tdL}>{badge(t.category||"Uncategorized","gray")}</td></tr>))}</tbody></table></div><div style={{display:"flex",gap:10}}><button onClick={reset} style={{...S.btnGhost,flex:1}}>Back</button><button onClick={importDB} disabled={importing} style={{...S.btnG,flex:2,opacity:importing?0.5:1}}>{importing?"Importing...":"Import All"}</button></div></div>)}
-      {step===3&&(<div style={{textAlign:"center",padding:40}}><div style={{fontSize:56,marginBottom:12}}>🎉</div><div style={{fontSize:20,fontWeight:700,color:"#3fb950",marginBottom:8}}>Bank Statement Imported!</div><div style={{display:"flex",gap:10,justifyContent:"center"}}><button onClick={reset} style={S.btn}>Import Another</button><button onClick={()=>setViewMode("history")} style={S.btnG}>View Transactions →</button></div></div>)}
+      {step===3&&(<div style={{textAlign:"center",padding:40}}>
+      <div style={{fontSize:56,marginBottom:12}}>🎉</div>
+      <div style={{fontSize:20,fontWeight:700,color:"#3fb950",marginBottom:8}}>Bank Statement Imported!</div>
+      {companyId&&<div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:16,textAlign:"left"}}>
+        <div style={{fontSize:13,fontWeight:600,color:"#3fb950",marginBottom:6}}>✅ Auto-Vouchers Created!</div>
+        <div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.8}}>
+          • All transactions added to Voucher Entry<br/>
+          • Unknown entries → <b>Suspense Account</b><br/>
+          • Go to <b>Voucher Entry</b> to review and assign proper ledgers<br/>
+          • Replace "Suspense Account" with correct ledger names
+        </div>
+      </div>}
+      <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+        <button onClick={reset} style={S.btn}>Import Another</button>
+        <button onClick={()=>setViewMode("history")} style={S.btnG}>View Transactions →</button>
+        {companyId&&<button onClick={()=>setViewMode("vouchers")} style={{...S.btnG,background:"#6e40c9"}}>View Vouchers →</button>}
+      </div>
+    </div>)}
     </div>)}
     {viewMode==="history"&&(<div><div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:12,color:"#8B949E"}}>Filter:</span>{["all",...TYPES].map(t=>(<button key={t} onClick={()=>setFilterType(t)} style={{padding:"4px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,fontFamily:"inherit",borderColor:filterType===t?"#58a6ff":"#30363D",background:filterType===t?"#0c1d2e":"transparent",color:filterType===t?"#58a6ff":"#8B949E"}}>{t==="all"?"All":t}</button>))}<button onClick={loadTxns} style={{...S.btnGhost,marginLeft:"auto",fontSize:11}}>Refresh</button></div>
     <div style={S.card}>{transactions.length===0?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No transactions. Import first.</div>:(
@@ -1660,12 +1683,12 @@ function BackupRestore({token,toast,user}){
 
 const NAV=[
   {key:"dashboard",    icon:"🏠",label:"Dashboard",            group:"MAIN"},
-  {key:"sales",        icon:"📄",label:"Sales Invoices",        group:"INVOICING"},
-  {key:"purchases",    icon:"🧾",label:"Purchase Bills",        group:"INVOICING"},
-  {key:"parties",      icon:"👥",label:"Parties & Customers",   group:"INVOICING"},
-  {key:"products",     icon:"📦",label:"Products & Stock",      group:"INVOICING"},
-  {key:"bank",         icon:"🏦",label:"Bank Statement",        group:"INVOICING"},
-  {key:"reports",      icon:"📈",label:"Invoice Reports",       group:"INVOICING"},
+  {key:"sales",        icon:"📄",label:"Sales Invoices",        group:"ACCOUNTING"},
+  {key:"purchases",    icon:"🧾",label:"Purchase Bills",        group:"ACCOUNTING"},
+  {key:"parties",      icon:"👥",label:"Parties & Customers",   group:"ACCOUNTING"},
+  {key:"products",     icon:"📦",label:"Products & Stock",      group:"ACCOUNTING"},
+  {key:"bank",         icon:"🏦",label:"Bank Statement",        group:"ACCOUNTING"},
+  {key:"reports",      icon:"📈",label:"Invoice Reports",       group:"ACCOUNTING"},
   {key:"gst-clients",  icon:"🏢",label:"GST Clients",           group:"GST"},
   {key:"notices",      icon:"🔔",label:"Notice Manager",        group:"GST"},
   {key:"returns",      icon:"📋",label:"Return Tracker",        group:"GST"},
@@ -1726,8 +1749,8 @@ export default function App(){
 
   const ACC_VIEWS=["acc-companies","acc-groups","acc-ledgers","acc-vouchers","acc-reports"];
   const isAcc=ACC_VIEWS.includes(view);
-  const GROUPS=["MAIN","INVOICING","GST","GST FILING","ACCOUNTING","TOOLS","SETUP"];
-  const GROUP_LABELS={"MAIN":"","INVOICING":"INVOICING","GST":"GST COMPLIANCE","GST FILING":"GST FILING","ACCOUNTING":"TALLY ACCOUNTING","TOOLS":"TOOLS","SETUP":"SETUP"};
+  const GROUPS=["MAIN","GST","GST FILING","ACCOUNTING","TOOLS","SETUP"];
+  const GROUP_LABELS={"MAIN":"","GST":"GST COMPLIANCE","GST FILING":"GST FILING","ACCOUNTING":"TALLY ACCOUNTING","TOOLS":"TOOLS","SETUP":"SETUP"};
 
   return(
     <div style={S.app}>
@@ -1739,7 +1762,7 @@ export default function App(){
         <nav style={{flex:1,padding:"4px 0",overflowY:"auto"}}>
           {GROUPS.map(g=>(
             <div key={g}>
-              {!collapsed&&GROUP_LABELS[g]&&<div style={{fontSize:9,color:"#444C56",padding:"8px 12px 2px",letterSpacing:1,fontWeight:600}}>{GROUP_LABELS[g]}</div>}
+              {!collapsed&&GROUP_LABELS[g]&&<div style={{fontSize:9,color:g==="ACCOUNTING"?"#58a6ff":"#444C56",padding:"8px 12px 2px",letterSpacing:1,fontWeight:600,display:"flex",alignItems:"center",gap:4}}><span>{GROUP_LABELS[g]}</span>{g==="ACCOUNTING"&&(activeCompany?<span style={{color:"#3fb950",fontSize:8}}>● {activeCompany.name.substring(0,15)}</span>:<span style={{color:"#f85149",fontSize:8}}>● No Company</span>)}</div>}
               {!collapsed&&g==="ACCOUNTING"&&(
                 <div style={{margin:"4px 8px 6px",background:activeCompany?"#0c1d2e":"#1a0a0a",border:`1px solid ${activeCompany?"#1f4872":"#6e1c1c"}`,borderRadius:8,padding:"7px 10px",cursor:"pointer"}} onClick={()=>setView("acc-companies")}>
                   {activeCompany?(<div><div style={{fontSize:9,color:"#58a6ff",fontWeight:600,marginBottom:1}}>🏢 ACTIVE COMPANY</div><div style={{fontSize:11,fontWeight:700,color:"#E6EDF3",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{activeCompany.name}</div><div style={{fontSize:9,color:"#8B949E"}}>FY {activeCompany.fy_start?.substring(0,4)}–{activeCompany.fy_end?.substring(2,4)} · Click to change</div></div>)
@@ -1784,7 +1807,7 @@ export default function App(){
           {view==="purchases"    &&<InvoiceList      token={token} toast={showToast} type="PURCHASE" companyId={activeCompany?.id}/>}
           {view==="parties"      &&<Parties          token={token} toast={showToast}                 companyId={activeCompany?.id}/>}
           {view==="products"     &&<Products         token={token} toast={showToast}                 companyId={activeCompany?.id}/>}
-          {view==="bank"         &&<BankStatement    token={token} toast={showToast}                 companyId={activeCompany?.id}/>}
+          {view==="bank"         &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><BankStatement token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
           {view==="reports"      &&<Reports          token={token}                                    companyId={activeCompany?.id}/>}
           {view==="gst-clients"  &&<GSTClients       token={token} toast={showToast}/>}
           {view==="notices"      &&<Notices          token={token} toast={showToast}/>}
