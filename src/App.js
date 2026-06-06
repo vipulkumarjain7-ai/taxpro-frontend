@@ -1029,10 +1029,23 @@ function BankStatement({token,toast,companyId}){
       </div>
     </div>)}
     </div>)}
-    {viewMode==="history"&&(<div><div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:12,color:"#8B949E"}}>Filter:</span>{["all",...TYPES].map(t=>(<button key={t} onClick={()=>setFilterType(t)} style={{padding:"4px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,fontFamily:"inherit",borderColor:filterType===t?"#58a6ff":"#30363D",background:filterType===t?"#0c1d2e":"transparent",color:filterType===t?"#58a6ff":"#8B949E"}}>{t==="all"?"All":t}</button>))}<button onClick={loadTxns} style={{...S.btnGhost,marginLeft:"auto",fontSize:11}}>Refresh</button></div>
+    {viewMode==="history"&&(<div><div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+  <span style={{fontSize:12,color:"#8B949E"}}>Filter:</span>
+  {["all","INCOME","EXPENSE","TRANSFER","TAX","UNKNOWN"].map(t=>(<button key={t} onClick={()=>{setFilterType(t);setTimeout(loadTxns,100);}} style={{padding:"4px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,fontFamily:"inherit",borderColor:filterType===t?"#58a6ff":"#30363D",background:filterType===t?"#0c1d2e":"transparent",color:filterType===t?"#58a6ff":"#8B949E"}}>{t==="all"?"All":t}</button>))}
+  <button onClick={loadTxns} style={{...S.btnGhost,fontSize:11,padding:"5px 12px"}}>🔄 Refresh</button>
+  <button onClick={async()=>{if(!window.confirm(`Delete ALL bank transactions${companyId?" for this company":""}?`))return;try{await api(`/bank/transactions-all${companyId?`?company_id=${companyId}`:""}`, "DELETE",null,token);toast("All transactions deleted","success");loadTxns();}catch(e){toast(e.message,"error");}}} style={{...S.btnDanger,fontSize:11,padding:"5px 12px",marginLeft:"auto"}}>🗑 Clear All</button>
+</div>
     <div style={S.card}>{transactions.length===0?<div style={{textAlign:"center",padding:40,color:"#8B949E"}}>No transactions. Import first.</div>:(
-      <table style={S.tbl}><thead><tr>{["Date","Description","Debit","Credit","Category","Type"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-      <tbody>{transactions.map(t=>(<tr key={t.id}><td style={S.td}>{t.txn_date}</td><td style={{...S.td,maxWidth:250}}><div style={{fontSize:12,color:"#E6EDF3",fontWeight:500,marginBottom:2,wordBreak:"break-word",lineHeight:1.4}}>{t.description}</div></td><td style={{...S.td,color:"#f85149",fontWeight:t.debit>0?600:400}}>{t.debit>0?fmtM(t.debit):"—"}</td><td style={{...S.td,color:"#3fb950",fontWeight:t.credit>0?600:400}}>{t.credit>0?fmtM(t.credit):"—"}</td><td style={S.td}><select value={t.category||"Uncategorized"} onChange={e=>updateCat(t.id,e.target.value,t.type)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{CATS.map(c=><option key={c}>{c}</option>)}</select></td><td style={S.tdL}><select value={t.type||"UNKNOWN"} onChange={e=>updateCat(t.id,t.category,e.target.value)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{TYPES.map(tp=><option key={tp}>{tp}</option>)}</select></td></tr>))}</tbody></table>
+      <table style={S.tbl}><thead><tr>{["Date","Narration / Description","Debit","Credit","Category","Type",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+      <tbody>{transactions.map(t=>(<tr key={t.id}>
+        <td style={S.td}>{t.txn_date}</td>
+        <td style={{...S.td,maxWidth:250}}><div style={{fontSize:12,color:"#E6EDF3",fontWeight:500,marginBottom:2,lineHeight:1.4}}>{t.description||t.narration}</div></td>
+        <td style={{...S.td,color:"#f85149",fontWeight:t.debit>0?700:400}}>{t.debit>0?fmtM(t.debit):"—"}</td>
+        <td style={{...S.td,color:"#3fb950",fontWeight:t.credit>0?700:400}}>{t.credit>0?fmtM(t.credit):"—"}</td>
+        <td style={S.td}><select value={t.category||"Uncategorized"} onChange={e=>updateCat(t.id,e.target.value,t.type)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{["Suspense","Salary","Rent","Tax Payment","Utilities","Fund Transfer","Cash","Loan Payment","Interest","Insurance","Purchase","Sales Receipt","Online Purchase","Fuel","Travel","Medical","UPI Payment","UPI Receipt","Cheque","Refund","Uncategorized"].map(c=><option key={c}>{c}</option>)}</select></td>
+        <td style={S.td}><select value={t.type||"UNKNOWN"} onChange={e=>updateCat(t.id,t.category,e.target.value)} style={{...S.select,fontSize:11,padding:"3px 6px",width:"auto"}}>{["INCOME","EXPENSE","PURCHASE","TAX","BANK","TRANSFER","UNKNOWN"].map(tp=><option key={tp}>{tp}</option>)}</select></td>
+        <td style={S.tdL}><button onClick={async()=>{if(!window.confirm("Delete?"))return;try{await api(`/bank/transactions/${t.id}`,"DELETE",null,token);toast("Deleted","success");loadTxns();}catch(e){toast(e.message,"error");}}} style={{...S.btnDanger,fontSize:11,padding:"4px 8px"}}>Del</button></td>
+      </tr>))}</tbody></table>
     )}</div></div>)}
   </div>);
 }
@@ -1267,7 +1280,20 @@ function CompanyManager({token,toast,onSelect,selectedCompany}){
   useEffect(()=>{load();},[]);
   const openAdd=()=>{setEditing(null);setForm({name:"",legal_name:"",gstin:"",pan:"",address:"",city:"",state:"",pincode:"",phone:"",email:"",fy_start:"2024-04-01",fy_end:"2025-03-31"});setShowModal(true);};
   const save=async()=>{if(!form.name)return toast("Company name required","error");setSaving(true);try{if(editing){await api(`/accounting/companies/${editing.id}`,"PUT",form,token);toast("Updated","success");}else{await api("/accounting/companies","POST",form,token);toast("Company created with Chart of Accounts!","success");}setShowModal(false);load();}catch(e){toast(e.message,"error");}setSaving(false);};
-  const del=async(e,id)=>{e.stopPropagation();if(!window.confirm("Delete company and all its data?"))return;try{await api(`/accounting/companies/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
+  const del=async(e,id)=>{
+    e.stopPropagation();
+    if(!window.confirm("Delete company and ALL its data (ledgers, vouchers, etc.)? This cannot be undone!"))return;
+    try{
+      await api(`/accounting/companies/${id}`,"DELETE",null,token);
+      toast("Company deleted","success");
+      // If deleted company was the active one → clear it
+      if(selectedCompany?.id===id){
+        onSelect(null);
+        localStorage.removeItem("taxpro_company");
+      }
+      load();
+    }catch(e){toast(e.message,"error");}
+  };
   return(<div>
     <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center"}}><div style={{fontSize:14,fontWeight:600,color:"#E6EDF3"}}>Companies</div><button onClick={openAdd} style={{...S.btn,marginLeft:"auto"}}>+ New Company</button></div>
     {loading?<Spinner/>:companies.length===0?(<div style={{...S.card,textAlign:"center",padding:50}}><div style={{fontSize:48,marginBottom:12}}>🏢</div><div style={{fontSize:15,fontWeight:600,color:"#E6EDF3",marginBottom:8}}>No Companies Yet</div><div style={{color:"#8B949E",fontSize:13,marginBottom:20}}>Create a company to start Tally-like accounting with Chart of Accounts, Ledgers and Vouchers.</div><button onClick={openAdd} style={S.btn}>+ Create First Company</button></div>):(
@@ -1600,13 +1626,13 @@ function AccountingReports({token,toast,companyId}){
 // AccountingShell removed - now using AccCompanyGuard directly
 
 
-function BackupRestore({token,toast,user}){
+function BackupRestore({token,toast,user,companyId}){
   const[stats,setStats]=useState(null);const[loading,setLoading]=useState(true);const[exporting,setExporting]=useState(false);const[restoreFile,setRestoreFile]=useState(null);const[restoreInfo,setRestoreInfo]=useState(null);const[checking,setChecking]=useState(false);
-  useEffect(()=>{api("/backup/stats","GET",null,token).then(d=>{setStats(d.stats);setLoading(false);}).catch(()=>setLoading(false));},[token]);
+  useEffect(()=>{api(`/backup/stats${companyId?`?company_id=${companyId}`:""}`, "GET",null,token).then(d=>{setStats(d.stats);setLoading(false);}).catch(()=>setLoading(false));},[token]);
   const exportBackup=async()=>{
     setExporting(true);
     try{
-      const res=await fetch(`${API}/backup/export`,{headers:{Authorization:`Bearer ${token}`}});
+      const res=await fetch(`${API}/backup/export${companyId?`?company_id=${companyId}`:""}`,{headers:{Authorization:`Bearer ${token}`}});
       if(!res.ok)throw new Error("Export failed");
       const jsonText=await res.text();
       const dateStr=new Date().toISOString().split("T")[0];
@@ -1659,7 +1685,7 @@ function BackupRestore({token,toast,user}){
   const checkFile=async()=>{if(!restoreFile)return;setChecking(true);try{const text=await restoreFile.text();const backup=JSON.parse(text);const d=await api("/backup/restore-check","POST",{backup},token);if(d.success)setRestoreInfo({...d,filename:restoreFile.name});else toast(d.message,"error");}catch(e){toast("Invalid file: "+e.message,"error");}setChecking(false);};
   const DATA_ITEMS=[{key:"clients",icon:"👥",label:"Parties"},{key:"invoices",icon:"📄",label:"Invoices"},{key:"products",icon:"📦",label:"Products"},{key:"notices",icon:"🔔",label:"Notices"},{key:"returns",icon:"📋",label:"Returns"},{key:"bank_transactions",icon:"🏦",label:"Bank Txns"},{key:"vouchers",icon:"✏",label:"Vouchers"},{key:"hsn_codes",icon:"🏷",label:"HSN Codes"},{key:"payments",icon:"💰",label:"Payments"}];
   return(<div>
-    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:16}}><div style={{fontSize:14,fontWeight:700,color:"#58a6ff",marginBottom:6}}>💾 Data Backup & Restore</div><div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.8}}>• Exports ALL your data as a ZIP file<br/>• Store in Google Drive, Email or USB<br/>• <span style={{color:"#e3b341",fontWeight:600}}>Recommended: Take backup weekly</span></div></div>
+    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:16}}><div style={{fontSize:14,fontWeight:700,color:"#58a6ff",marginBottom:6}}>💾 Data Backup & Restore {companyId&&<span style={{fontSize:11,background:"#0c1d2e",border:"1px solid #1f4872",padding:"2px 8px",borderRadius:20,marginLeft:8}}>Company-specific</span>}</div><div style={{fontSize:12,color:"#C9D1D9",lineHeight:1.8}}>• Exports ALL your data as a ZIP file<br/>• Store in Google Drive, Email or USB<br/>• <span style={{color:"#e3b341",fontWeight:600}}>Recommended: Take backup weekly</span></div></div>
     <div style={S.twoCol}>
       <div style={S.card}><div style={{fontSize:13,fontWeight:700,color:"#E6EDF3",marginBottom:14}}>📤 Export Backup</div>
         {loading?<Spinner/>:<div style={{marginBottom:14}}><div style={{fontSize:11,color:"#8B949E",marginBottom:8,fontWeight:600}}>YOUR DATA</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>{DATA_ITEMS.map(item=>(<div key={item.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:"#0D1117",borderRadius:6}}><span style={{fontSize:11,color:"#C9D1D9"}}>{item.icon} {item.label}</span><span style={{fontSize:12,fontWeight:700,color:stats?.[item.key]>0?"#3fb950":"#8B949E"}}>{stats?.[item.key]||0}</span></div>))}</div><div style={{display:"flex",justifyContent:"space-between",padding:"8px 10px",background:"#1F6FEB18",borderRadius:8,marginTop:8,border:"1px solid #1f4872"}}><span style={{color:"#58a6ff",fontWeight:600}}>Total Records</span><span style={{color:"#58a6ff",fontWeight:800,fontSize:15}}>{Object.values(stats||{}).reduce((a,v)=>a+v,0).toLocaleString()}</span></div></div>}
@@ -1856,6 +1882,17 @@ export default function App(){
 
   useEffect(()=>{localStorage.setItem("taxpro_accent",accentColor);},[accentColor]);
 
+  // Verify stored company still exists on load
+  useEffect(()=>{
+    if(activeCompany&&token){
+      api("/accounting/companies","GET",null,token)
+        .then(d=>{
+          const exists=(d.companies||[]).find(c=>c.id===activeCompany.id);
+          if(!exists){setActiveCompany(null);localStorage.removeItem("taxpro_company");}
+        }).catch(()=>{});
+    }
+  },[token]);
+
   const selectCompany=c=>{setActiveCompany(c);if(c)localStorage.setItem("taxpro_company",JSON.stringify(c));else localStorage.removeItem("taxpro_company");};
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),4500);};
   const logout=()=>{localStorage.removeItem("taxpro_token");localStorage.removeItem("taxpro_user");localStorage.removeItem("taxpro_company");setUser(null);setToken("");};
@@ -1945,7 +1982,7 @@ export default function App(){
           {view==="reply"        &&<NoticeReply      token={token}/>}
           {view==="ai"           &&<AIAssistant      token={token}/>}
           {view==="hsn-manager"  &&<HSNManager       token={token} toast={showToast}/>}
-          {view==="backup"       &&<BackupRestore    token={token} toast={showToast} user={user}/>}
+          {view==="backup"       &&<BackupRestore    token={token} toast={showToast} user={user} companyId={activeCompany?.id}/>}
           {view==="settings"     &&<Settings         token={token} user={user} toast={showToast} onLogout={logout} accentColor={accentColor} setAccentColor={setAccentColor}/>}
         </div>
       </div>
