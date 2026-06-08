@@ -2056,4 +2056,4 @@ export default function App(){
     </div>
   );
 }return(<div>
-    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:20,marginBottom:6}}>⚠️</div><div style={{fontSize:13,fontWeight:700,color:"#e3b341"}}>Select a Company First</div><div style={{fontSize:12,color:"#C9D1D9",marginTop:4}}>Go to ACCOUNTING → Manage Companies to select your active company.</div></div>}}
+    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:20,marginBottom:6}}>⚠️</div><div style={{fontSize:13,fontWeight:700,color:"#e3b341"}}>Select a Company First</div><div style={{fontSize:12,color:"#C9D1D9",marginTop:4}}>Go to ACCOUNTING → Manage Companies to select your active company.</div></div>}</div>)
