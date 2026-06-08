@@ -453,48 +453,87 @@ function AuthScreen({onAuth}){
   );
 }
 
-function Dashboard({token,companyId}){
+function Dashboard({token,companyId,setView}){
   const[gst,setGst]=useState(null);const[inv,setInv]=useState(null);const[loading,setLoading]=useState(true);
-  useEffect(()=>{Promise.all([api(`/dashboard${companyId?`?company_id=${companyId}`:""}`,"GET",null,token).catch(()=>null),api(`/invoices/stats/summary${companyId?`?company_id=${companyId}`:""}`,"GET",null,token).catch(()=>null)]).then(([g,i])=>{setGst(g?.dashboard);setInv(i?.stats);setLoading(false);});},[token]);
+  useEffect(()=>{
+    Promise.all([
+      api(`/dashboard${companyId?`?company_id=${companyId}`:""}`, "GET",null,token).catch(()=>null),
+      api(`/invoices/stats/summary${companyId?`?company_id=${companyId}`:""}`, "GET",null,token).catch(()=>null)
+    ]).then(([g,i])=>{setGst(g?.dashboard);setInv(i?.stats);setLoading(false);});
+  },[token,companyId]);
+
   if(loading)return<Spinner/>;
+
+  const SUITES=[
+    {icon:"📊",title:"Accounting",desc:"Ledgers, Vouchers, Trial Balance, P&L, Balance Sheet",color:"#1F6FEB",keys:["acc-groups","acc-ledgers","acc-vouchers","acc-reports"],badge:"Active"},
+    {icon:"🧾",title:"GST Compliance",desc:"Clients, Notices, Returns, Reconciliation",color:"#238636",keys:["gst-clients","notices","returns","reconcile"],badge:"Active"},
+    {icon:"📋",title:"GST Filing",desc:"GSTR-1, GSTR-3B, E-Invoice, E-Way Bill",color:"#9333ea",keys:["gstr1","gstr3b","einvoice","ewaybill"],badge:"Active"},
+    {icon:"📄",title:"Invoicing",desc:"Sales, Purchase, Parties, Products & Stock",color:"#0e9182",keys:["sales","purchases","parties","products"],badge:"Active"},
+    {icon:"🏦",title:"Banking",desc:"Bank Statement Import, Bank Reconciliation",color:"#d97706",keys:["bank","bank-recon"],badge:"Active"},
+    {icon:"🤖",title:"AI Suite",desc:"AI Assistant, Notice Reply Generator",color:"#e11d48",keys:["ai","reply"],badge:"Active"},
+  ];
+
   return(<div>
-    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14,padding:"14px 18px",display:"flex",alignItems:"center",gap:12}}>
+    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:16,padding:"14px 18px",display:"flex",alignItems:"center",gap:12}}>
       <span style={{fontSize:24}}>⚠️</span>
-      <div><div style={{fontSize:13,fontWeight:700,color:"#e3b341"}}>No Active Company</div><div style={{fontSize:12,color:"#C9D1D9",marginTop:3}}>Select or create a company from <b>ACCOUNTING → Manage Companies</b> to see company-specific data.</div></div>
+      <div><div style={{fontSize:13,fontWeight:700,color:"#e3b341"}}>No Active Company Selected</div><div style={{fontSize:12,color:"#C9D1D9",marginTop:3}}>Go to <b>ACCOUNTING → Manage Companies</b> to create or select a company.</div></div>
     </div>}
-    <div style={{marginBottom:10}}>{badge("Live Dashboard","blue")}</div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
-      {[{label:"Monthly Sales",val:fmtM(inv?.monthly_sales||0),color:"#3fb950"},{label:"Monthly Purchases",val:fmtM(inv?.monthly_purchases||0),color:"#58a6ff"},{label:"Outstanding",val:fmtM(inv?.total_outstanding||0),color:"#e3b341"},{label:"Overdue",val:fmtM(inv?.overdue_amount||0),color:"#f85149"}].map(k=>(
-        <div key={k.label} style={S.kpi}><div style={S.kpiLabel}>{k.label}</div><div style={{fontSize:15,fontWeight:700,color:k.color}}>{k.val}</div></div>
+
+    {/* KPI Row */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+      {[{l:"Monthly Sales",v:fmtM(inv?.monthly_sales||0),c:"#3fb950",icon:"📈"},{l:"Monthly Purchase",v:fmtM(inv?.monthly_purchases||0),c:"#58a6ff",icon:"📉"},{l:"Outstanding",v:fmtM(inv?.total_outstanding||0),c:"#e3b341",icon:"⏳"},{l:"Overdue",v:fmtM(inv?.overdue_amount||0),c:"#f85149",icon:"🔴"}].map(k=>(
+        <div key={k.l} style={{...S.kpi,background:"#161B22",border:"1px solid #21262D"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+            <div style={S.kpiLabel}>{k.l}</div>
+            <span style={{fontSize:18}}>{k.icon}</span>
+          </div>
+          <div style={{fontSize:16,fontWeight:700,color:k.c}}>{k.v}</div>
+        </div>
       ))}
     </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
-      {[{label:"GST Clients",val:gst?.clients?.total||0,color:"#E6EDF3"},{label:"Compliant",val:gst?.clients?.compliant||0,color:"#3fb950"},{label:"Open Notices",val:gst?.notices?.open||0,color:"#f85149"},{label:"Due in 30 Days",val:gst?.notices?.due_in_30_days||0,color:"#e3b341"}].map(k=>(
-        <div key={k.label} style={S.kpi}><div style={S.kpiLabel}>{k.label}</div><div style={{...S.kpiVal,color:k.color}}>{k.val}</div></div>
+
+    {/* Suite Cards */}
+    <div style={{fontSize:12,color:"#8B949E",marginBottom:10,fontWeight:600,letterSpacing:1}}>SELECT A MODULE</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:20}}>
+      {SUITES.map(s=>(
+        <div key={s.title} onClick={()=>setView&&setView(s.keys[0])} style={{background:"#161B22",border:`1px solid #21262D`,borderRadius:14,padding:20,cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
+          onMouseEnter={e=>{e.currentTarget.style.border=`1px solid ${s.color}`;e.currentTarget.style.background="#1c2333";}}
+          onMouseLeave={e=>{e.currentTarget.style.border="1px solid #21262D";e.currentTarget.style.background="#161B22";}}>
+          <div style={{position:"absolute",top:12,right:12}}>{badge(s.badge,"green")}</div>
+          <div style={{fontSize:36,marginBottom:10}}>{s.icon}</div>
+          <div style={{fontSize:15,fontWeight:700,color:"#E6EDF3",marginBottom:6}}>{s.title}</div>
+          <div style={{fontSize:12,color:"#8B949E",lineHeight:1.6,marginBottom:14}}>{s.desc}</div>
+          <div style={{display:"inline-flex",alignItems:"center",gap:6,background:s.color,color:"#fff",padding:"6px 14px",borderRadius:8,fontSize:12,fontWeight:600}}>Enter Suite →</div>
+        </div>
       ))}
     </div>
+
+    {/* GST + Notice summary */}
     <div style={S.twoCol}>
       <div style={S.card}>
-        <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:12}}>Upcoming Notice Due Dates</div>
-        {!gst?.upcoming_notices?.length?<div style={{color:"#3fb950",fontSize:12}}>No notices due soon ✓</div>:gst.upcoming_notices.map(n=>(
+        <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:12}}>GST Overview</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {[{l:"GST Clients",v:gst?.clients?.total||0,c:"#58a6ff"},{l:"Compliant",v:gst?.clients?.compliant||0,c:"#3fb950"},{l:"Open Notices",v:gst?.notices?.open||0,c:"#f85149"},{l:"Due in 30 Days",v:gst?.notices?.due_in_30_days||0,c:"#e3b341"}].map(k=>(
+            <div key={k.l} style={{background:"#0D1117",borderRadius:8,padding:10,textAlign:"center"}}>
+              <div style={S.kpiLabel}>{k.l}</div>
+              <div style={{fontSize:20,fontWeight:700,color:k.c}}>{k.v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={S.card}>
+        <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:12}}>Upcoming Due Dates</div>
+        {!gst?.upcoming_notices?.length?<div style={{color:"#3fb950",fontSize:12,padding:"10px 0"}}>✅ No notices due soon</div>:gst.upcoming_notices.slice(0,4).map(n=>(
           <div key={n.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid #21262D"}}>
-            <div><div style={{fontWeight:500,color:"#E6EDF3",fontSize:12}}>{n.client_name}</div><div style={{fontSize:11,color:"#8B949E"}}>{n.type}</div></div>
+            <div><div style={{fontWeight:500,color:"#E6EDF3",fontSize:12}}>{n.client_name}</div><div style={{fontSize:10,color:"#8B949E"}}>{n.type}</div></div>
             {badge(n.due_date,"amber")}
           </div>
         ))}
       </div>
-      {gst?.returns_summary&&(
-        <div style={S.card}>
-          <div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:12}}>GST Filing — {gst.returns_summary.period}</div>
-          <table style={S.tbl}><thead><tr>{["Return","Filed","Pending","Not Filed"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-          <tbody>{[["GSTR-1","gstr1"],["GSTR-3B","gstr3b"],["GSTR-9","gstr9"]].map(([lbl,key])=>(
-            <tr key={key}><td style={S.td}>{lbl}</td><td style={{...S.td,color:"#3fb950",fontWeight:600}}>{gst.returns_summary[key].filed}</td><td style={{...S.td,color:"#e3b341",fontWeight:600}}>{gst.returns_summary[key].pending}</td><td style={{...S.tdL,color:"#f85149",fontWeight:600}}>{gst.returns_summary[key].not_filed}</td></tr>
-          ))}</tbody></table>
-        </div>
-      )}
     </div>
   </div>);
 }
+
 
 function Parties({token,toast,companyId}){
   const[parties,setParties]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showModal,setShowModal]=useState(false);const[editing,setEditing]=useState(null);const[saving,setSaving]=useState(false);const[ledger,setLedger]=useState(null);
@@ -508,6 +547,7 @@ function Parties({token,toast,companyId}){
   const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/parties/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
   const viewLedger=async id=>{try{const d=await api(`/parties/${id}/ledger`,"GET",null,token);setLedger(d);}catch(e){toast(e.message,"error");}};
   return(<div>
+    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:20,marginBottom:4}}>⚠️</div><div style={{fontSize:13,fontWeight:700,color:"#e3b341"}}>Select a Company First</div><div style={{fontSize:12,color:"#C9D1D9",marginTop:4}}>Select company from ACCOUNTING section to manage its parties.</div></div>}
     {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:13}}>⚠️</span><span style={{fontSize:12,color:"#e3b341"}}>No company selected — showing all parties. Select a company to isolate.</span></div>}
     <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
       <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()} placeholder="Search parties..." style={{...S.input,width:280}}/>
@@ -656,8 +696,12 @@ function InvoiceForm({token,toast,type,onClose,onSave,companyId}){
 
 function InvoiceList({token,toast,type,companyId}){
   const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showForm,setShowForm]=useState(false);const[viewing,setViewing]=useState(null);const[payModal,setPayModal]=useState(null);const[payForm,setPayForm]=useState({amount:"",method:"CASH",reference_no:"",payment_date:todayStr()});
-  const load=useCallback(()=>{setLoading(true);api(`/invoices?type=${type}${search?`&search=${encodeURIComponent(search)}`:""}${companyId?`&company_id=${companyId}`:""}`, "GET",null,token).then(d=>{setInvoices(d.invoices||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,type,search]);
-  useEffect(()=>{load();},[load]);
+  const load=useCallback(()=>{
+    if(!companyId){setInvoices([]);setLoading(false);return;}
+    setLoading(true);
+    api(`/invoices?type=${type}&company_id=${companyId}${search?`&search=${encodeURIComponent(search)}`:""}`, "GET",null,token)
+      .then(d=>{setInvoices(d.invoices||[]);setLoading(false);}).catch(()=>setLoading(false));
+  },[token,type,search,companyId]);
   const del=async id=>{if(!window.confirm("Delete invoice?"))return;try{await api(`/invoices/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
   const viewInv=async id=>{try{const d=await api(`/invoices/${id}`,"GET",null,token);setViewing(d.invoice);}catch(e){toast(e.message,"error");}};
   const recordPayment=async()=>{try{await api(`/invoices/${payModal.id}/payment`,"POST",payForm,token);toast("Payment recorded","success");setPayModal(null);load();}catch(e){toast(e.message,"error");}};
@@ -677,7 +721,9 @@ function InvoiceList({token,toast,type,companyId}){
   };
   const label=type==="SALES"?"Invoice":"Bill";
   return(<div>
-    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:12,padding:"8px 14px",display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:13}}>⚠️</span><span style={{fontSize:12,color:"#e3b341"}}>No company selected — showing all data. <b>Select a company</b> from TALLY ACCOUNTING section to isolate data.</span></div>}
+    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:12,padding:"12px 16px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20}}>⚠️</span><div><div style={{fontSize:13,fontWeight:700,color:"#e3b341"}}>No Active Company</div><div style={{fontSize:12,color:"#C9D1D9",marginTop:2}}>Select a company from <b>ACCOUNTING → Manage Companies</b> to view its data.</div></div></div>
+    </div>}
     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
       {[{l:"Total "+label+"s",v:invoices.length,c:"#58a6ff"},{l:"Total Amount",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.total_amount||0),0)),c:"#3fb950"},{l:"Outstanding",v:fmtM(invoices.reduce((a,i)=>a+parseFloat(i.balance_due||0),0)),c:"#e3b341"}].map(k=>(
         <div key={k.l} style={S.kpi}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l.includes("Amount")||k.l.includes("Out")?14:22,fontWeight:700,color:k.c}}>{k.v}</div></div>
@@ -759,12 +805,18 @@ function Products({token,toast,companyId}){
   const[products,setProducts]=useState([]);const[loading,setLoading]=useState(true);const[search,setSearch]=useState("");const[showModal,setShowModal]=useState(false);const[editing,setEditing]=useState(null);const[saving,setSaving]=useState(false);const[stockModal,setStockModal]=useState(null);const[stockForm,setStockForm]=useState({type:"IN",qty:"",rate:"",notes:""});
   const[form,setForm]=useState({name:"",code:"",hsn_sac:"",unit:"PCS",category:"",gst_rate:"18",purchase_price:"0",sale_price:"0",stock_qty:"0",min_stock:"0",description:"",is_service:false});
   const UNITS=["PCS","KG","LTR","MTR","BOX","NOS","SET","DZ","PACK","TON"];
-  const load=useCallback(()=>{setLoading(true);api(`/products${search?`?search=${encodeURIComponent(search)}`:""}${companyId?(search?"&":"?")+"company_id="+companyId:""}`, "GET",null,token).then(d=>{setProducts(d.products||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,search]);
+  const load=useCallback(()=>{
+    if(!companyId){setProducts([]);setLoading(false);return;}
+    setLoading(true);
+    api(`/products?company_id=${companyId}${search?`&search=${encodeURIComponent(search)}`:""}`, "GET",null,token)
+      .then(d=>{setProducts(d.products||[]);setLoading(false);}).catch(()=>setLoading(false));
+  },[token,search,companyId]);
   useEffect(()=>{load();},[load]);
   const save=async()=>{if(!form.name)return toast("Name required","error");setSaving(true);try{if(editing){await api(`/products/${editing.id}`,"PUT",form,token);toast("Updated","success");}else{await api("/products","POST",{...form,company_id:companyId||null},token);toast("Added","success");}setShowModal(false);load();}catch(e){toast(e.message,"error");}setSaving(false);};
   const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/products/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
   const adjustStock=async()=>{try{await api(`/products/${stockModal.id}/stock`,"POST",stockForm,token);toast("Stock updated","success");setStockModal(null);load();}catch(e){toast(e.message,"error");}};
   return(<div>
+    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:20,marginBottom:4}}>⚠️</div><div style={{fontSize:13,fontWeight:700,color:"#e3b341"}}>Select a Company First</div><div style={{fontSize:12,color:"#C9D1D9",marginTop:4}}>Select company to manage its products and stock.</div></div>}
     <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
       <input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==="Enter"&&load()} placeholder="Search products..." style={{...S.input,width:260}}/>
       <button onClick={load} style={S.btnGhost}>Search</button>
@@ -995,9 +1047,19 @@ function BankStatement({token,toast,companyId}){
   const[step,setStep]=useState(1);const[file,setFile]=useState(null);const[bankName,setBankName]=useState("");const[preview,setPreview]=useState(null);const[uploading,setUploading]=useState(false);const[importing,setImporting]=useState(false);const[transactions,setTransactions]=useState([]);const[viewMode,setViewMode]=useState("upload");const[filterType,setFilterType]=useState("all");
   const TYPES=["INCOME","EXPENSE","PURCHASE","TAX","BANK","TRANSFER","UNKNOWN"];
   const CATS=["Salary","Rent","Tax Payment","Utilities","Fund Transfer","Cash","Loan Payment","Interest","Bank Charges","Insurance","Purchase","Sales Receipt","Online Purchase","Fuel","Travel","Medical","Uncategorized"];
-  const loadTxns=useCallback(()=>{api(`/bank/transactions?${companyId?`company_id=${companyId}&`:""}${filterType!=="all"?`type=${filterType}`:""}`, "GET",null,token).then(d=>setTransactions(d.transactions||[])).catch(()=>{});},[token,filterType,companyId]);
+  const loadTxns=useCallback(()=>{
+    const url=`/bank/transactions?${companyId?`company_id=${companyId}&`:""}${filterType!=="all"?`type=${filterType}`:""}`;
+    api(url,"GET",null,token).then(d=>{setTransactions(d.transactions||[]);}).catch(()=>{});
+  },[token,filterType,companyId]);
   useEffect(()=>{if(viewMode==="history")loadTxns();},[viewMode,loadTxns]);
-  const uploadPDF=async()=>{if(!file)return toast("Select PDF","error");setUploading(true);try{const fd=new FormData();fd.append("file",file);if(bankName)fd.append("bank_name",bankName);const res=await fetch(`${API}/bank/upload`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});const data=await res.json();if(data.success){setPreview(data.preview);setStep(2);}else toast(data.message,"error");}catch(e){toast("Upload failed","error");}setUploading(false);};
+  const uploadPDF=async()=>{
+    if(!file)return toast("Select PDF","error");
+    setUploading(true);
+    try{
+      const fd=new FormData();
+      fd.append("file",file);
+      if(bankName)fd.append("bank_name",bankName);
+      const res=await fetch(`${API}/bank/upload`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});const data=await res.json();if(data.success){setPreview(data.preview);setStep(2);}else toast(data.message,"error");}catch(e){toast("Upload failed","error");}setUploading(false);};
   const importDB=async()=>{if(!preview)return;setImporting(true);try{const data=await api("/bank/import","POST",{bank_name:bankName||preview.bank_name,account_no:"",transactions:preview.transactions,company_id:companyId||null,create_vouchers:!!companyId},token);if(data.success){toast(data.message,"success");setStep(3);}else toast(data.message,"error");}catch(e){toast(e.message,"error");}setImporting(false);};
   const updateCat=async(id,category,type)=>{try{await api(`/bank/transactions/${id}`,"PATCH",{category,type},token);loadTxns();}catch(e){}};
   const reset=()=>{setFile(null);setPreview(null);setStep(1);};
@@ -1007,7 +1069,7 @@ function BankStatement({token,toast,companyId}){
       {companyId?<div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:12,padding:"8px 14px"}}><span style={{fontSize:12,color:"#3fb950"}}>✅ After import, vouchers will be <b>auto-created</b> in the active company's accounting books.</span></div>
       :<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:12,padding:"8px 14px"}}><span style={{fontSize:12,color:"#e3b341"}}>⚠️ No company selected. Select a company so entries get linked to it and vouchers are auto-created.</span></div>}
       <div style={{display:"flex",gap:0,marginBottom:20}}>{[{n:1,l:"Upload"},{n:2,l:"Preview"},{n:3,l:"Done"}].map((s,i)=>(<div key={s.n} style={{display:"flex",alignItems:"center",flex:1}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1}}><div style={{width:30,height:30,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:12,background:step>=s.n?"#1F6FEB":"#21262D",color:step>=s.n?"#fff":"#8B949E"}}>{step>s.n?"✓":s.n}</div><div style={{fontSize:11,color:step>=s.n?"#58a6ff":"#8B949E",marginTop:4}}>{s.l}</div></div>{i<2&&<div style={{height:2,flex:1,background:step>s.n?"#1F6FEB":"#21262D",marginBottom:18}}/>}</div>))}</div>
-      {step===1&&(<div><div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}><div style={{fontSize:13,fontWeight:600,color:"#58a6ff",marginBottom:8}}>How to download Bank Statement PDF</div>{["Login to your bank's net banking","Go to Account Statement / e-Statement","Select date range","Download as PDF","Upload below — AI will auto-categorize!"].map((s,i)=>(<div key={i} style={{display:"flex",gap:10,padding:"3px 0",fontSize:12,color:"#C9D1D9"}}><span style={{color:"#1F6FEB",fontWeight:700}}>{i+1}.</span><span>{s}</span></div>))}</div>
+      {step===1&&(<div><div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}><div style={{fontSize:13,fontWeight:600,color:"#58a6ff",marginBottom:8}}>How to download Bank Statement PDF</div>{["Login to your bank's net banking","Go to Statements / Account Statement / e-Statement","Select date range (max 3 months at a time)","Download as PDF (NOT Excel/CSV — PDF only)","Make sure PDF is 'digital' not scanned image","Upload below — AI will read and import entries!"].map((s,i)=>(<div key={i} style={{display:"flex",gap:10,padding:"3px 0",fontSize:12,color:"#C9D1D9"}}><span style={{color:"#1F6FEB",fontWeight:700}}>{i+1}.</span><span>{s}</span></div>))}</div>
       <div style={S.card}><div style={S.fg}><label style={S.label}>Bank Name</label><input style={S.input} placeholder="SBI, HDFC, ICICI..." value={bankName} onChange={e=>setBankName(e.target.value)}/></div><div style={{border:"2px dashed #30363D",borderRadius:10,padding:30,textAlign:"center",marginBottom:16,background:file?"#0d2818":"#0D1117",borderColor:file?"#238636":"#30363D"}}>{file?(<div><div style={{fontSize:28,marginBottom:8}}>✅</div><div style={{fontSize:13,fontWeight:600,color:"#3fb950"}}>{file.name}</div><button onClick={()=>setFile(null)} style={{...S.btnGhost,marginTop:10,fontSize:11}}>Remove</button></div>):(<div><div style={{fontSize:40,marginBottom:8}}>🏦</div><div style={{fontSize:13,color:"#C9D1D9",marginBottom:12}}>Drop Bank Statement PDF here</div><label style={{...S.btn,cursor:"pointer",display:"inline-block"}}>Choose PDF<input type="file" accept=".pdf" onChange={e=>setFile(e.target.files[0])} style={{display:"none"}}/></label></div>)}</div><button onClick={uploadPDF} disabled={!file||uploading} style={{...S.btn,width:"100%",opacity:!file||uploading?0.5:1}}>{uploading?"Reading PDF...":"Upload & Analyze →"}</button></div></div>)}
       {step===2&&preview&&(<div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>{[{l:"Transactions",v:preview.total_txns,c:"#58a6ff"},{l:"Total Debit",v:fmtM(preview.total_debit),c:"#f85149"},{l:"Total Credit",v:fmtM(preview.total_credit),c:"#3fb950"},{l:"Net",v:fmtM(preview.total_credit-preview.total_debit),c:preview.total_credit>=preview.total_debit?"#3fb950":"#f85149"}].map(k=>(<div key={k.l} style={{...S.kpi,textAlign:"center"}}><div style={S.kpiLabel}>{k.l}</div><div style={{fontSize:k.l==="Transactions"?22:13,fontWeight:700,color:k.c}}>{k.v}</div></div>))}</div><div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:12}}><div style={{fontSize:12,color:"#3fb950"}}>✅ AI auto-categorized {preview.total_txns} transactions</div></div><div style={S.card}><div style={{fontSize:13,fontWeight:600,color:"#E6EDF3",marginBottom:10}}>Preview (first 50)</div><table style={S.tbl}><thead><tr>{["Date","Narration (from Bank PDF)","Debit (Withdrawal)","Credit (Deposit)","Category","Type"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{(preview.transactions||[]).slice(0,50).map((t,i)=>(<tr key={i}><td style={S.td}>{t.txn_date}</td><td style={{...S.td,maxWidth:250}}>
               <div style={{fontSize:12,color:"#E6EDF3",fontWeight:500,marginBottom:2,lineHeight:1.4}}>{t.description||t.narration}</div>
@@ -1035,7 +1097,7 @@ function BankStatement({token,toast,companyId}){
     </div>)}
     {viewMode==="history"&&(<div><div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
   <span style={{fontSize:12,color:"#8B949E"}}>Filter:</span>
-  {["all","INCOME","EXPENSE","TRANSFER","TAX","UNKNOWN"].map(t=>(<button key={t} onClick={()=>{setFilterType(t);setTimeout(loadTxns,100);}} style={{padding:"4px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,fontFamily:"inherit",borderColor:filterType===t?"#58a6ff":"#30363D",background:filterType===t?"#0c1d2e":"transparent",color:filterType===t?"#58a6ff":"#8B949E"}}>{t==="all"?"All":t}</button>))}
+  {["all","INCOME","EXPENSE","TRANSFER","TAX","UNKNOWN"].map(t=>(<button key={t} onClick={()=>setFilterType(t)} style={{padding:"4px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,fontFamily:"inherit",borderColor:filterType===t?"#58a6ff":"#30363D",background:filterType===t?"#0c1d2e":"transparent",color:filterType===t?"#58a6ff":"#8B949E"}}>{t==="all"?"All":t}</button>))}
   <button onClick={loadTxns} style={{...S.btnGhost,fontSize:11,padding:"5px 12px"}}>🔄 Refresh</button>
   <button onClick={async()=>{if(!window.confirm(`Delete ALL bank transactions${companyId?" for this company":""}?`))return;try{await api(`/bank/transactions-all${companyId?`?company_id=${companyId}`:""}`, "DELETE",null,token);toast("All transactions deleted","success");loadTxns();}catch(e){toast(e.message,"error");}}} style={{...S.btnDanger,fontSize:11,padding:"5px 12px",marginLeft:"auto"}}>🗑 Clear All</button>
 </div>
@@ -1959,7 +2021,7 @@ export default function App(){
           </div>
         </div>
         <div style={S.content}>
-          {view==="dashboard"    &&<Dashboard        token={token} companyId={activeCompany?.id}/>}
+          {view==="dashboard"    &&<Dashboard        token={token} companyId={activeCompany?.id} setView={setView}/>}
           {view==="sales"        &&<InvoiceList      token={token} toast={showToast} type="SALES"    companyId={activeCompany?.id}/>}
           {view==="purchases"    &&<InvoiceList      token={token} toast={showToast} type="PURCHASE" companyId={activeCompany?.id}/>}
           {view==="parties"      &&<Parties          token={token} toast={showToast}                 companyId={activeCompany?.id}/>}
@@ -1967,15 +2029,15 @@ export default function App(){
           {view==="bank"         &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><BankStatement token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
           {view==="bank-recon"   &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><BankReconciliation token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
           {view==="reports"      &&<Reports          token={token}                                    companyId={activeCompany?.id}/>}
-          {view==="gst-clients"  &&<GSTClients       token={token} toast={showToast}/>}
-          {view==="notices"      &&<Notices          token={token} toast={showToast}/>}
-          {view==="returns"      &&<Returns          token={token} toast={showToast}/>}
-          {view==="reconcile"    &&<Reconciliation   token={token} toast={showToast}/>}
-          {view==="gstr2a"       &&<GSTR2AImport     token={token} toast={showToast}/>}
-          {view==="gstr3b"       &&<GSTR3B           token={token} toast={showToast}/>}
-          {view==="gstr1"        &&<GSTR1            token={token} toast={showToast}/>}
-          {view==="einvoice"     &&<EInvoice         token={token} toast={showToast}/>}
-          {view==="ewaybill"     &&<EWayBill         token={token} toast={showToast}/>}
+          {view==="gst-clients"  &&<GSTClients       token={token} toast={showToast} companyId={activeCompany?.id}/>}
+          {view==="notices"      &&<Notices          token={token} toast={showToast} companyId={activeCompany?.id}/>}
+          {view==="returns"      &&<Returns          token={token} toast={showToast} companyId={activeCompany?.id}/>}
+          {view==="reconcile"    &&<Reconciliation   token={token} toast={showToast} companyId={activeCompany?.id}/>}
+          {view==="gstr2a"       &&<GSTR2AImport     token={token} toast={showToast} companyId={activeCompany?.id}/>}
+          {view==="gstr3b"       &&<GSTR3B           token={token} toast={showToast} companyId={activeCompany?.id}/>}
+          {view==="gstr1"        &&<GSTR1            token={token} toast={showToast} companyId={activeCompany?.id}/>}
+          {view==="einvoice"     &&<EInvoice         token={token} toast={showToast} companyId={activeCompany?.id}/>}
+          {view==="ewaybill"     &&<EWayBill         token={token} toast={showToast} companyId={activeCompany?.id}/>}
           {view==="acc-companies"&&<CompanyManager   token={token} toast={showToast} onSelect={selectCompany} selectedCompany={activeCompany}/>}
           {view==="acc-groups"   &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><LedgerGroups      token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
           {view==="acc-ledgers"  &&<AccCompanyGuard  company={activeCompany} onGo={()=>setView("acc-companies")}><LedgerManager     token={token} toast={showToast} companyId={activeCompany?.id}/></AccCompanyGuard>}
@@ -1993,4 +2055,5 @@ export default function App(){
       {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
     </div>
   );
-}
+}return(<div>
+    {!companyId&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:20,marginBottom:6}}>⚠️</div><div style={{fontSize:13,fontWeight:700,color:"#e3b341"}}>Select a Company First</div><div style={{fontSize:12,color:"#C9D1D9",marginTop:4}}>Go to ACCOUNTING → Manage Companies to select your active company.</div></div>}}
