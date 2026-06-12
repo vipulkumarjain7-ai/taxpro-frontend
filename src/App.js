@@ -585,14 +585,23 @@ function LedgerManager({token,toast,company}){
       ))
     }
     {modal&&(<Modal title={editing?"Edit Ledger":"New Ledger"} onClose={()=>setModal(false)}>
-      <div style={S.fg}><label style={S.label}>Ledger Name *</label><input style={S.input} value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))}/></div>
+      <div style={S.fg}>
+        <label style={S.label}>GSTIN (optional — auto-fills name & address)</label>
+        <GSTINInput value={f.gstin} onChange={v=>setF(p=>({...p,gstin:v}))} token={token} onVerified={info=>setF(p=>({
+          ...p,
+          gstin:info.gstin,
+          name:info.business_name||p.name,
+          address:[info.address,info.city,info.state,info.pincode].filter(Boolean).join(", ")||p.address,
+        }))}/>
+      </div>
+      <div style={S.fg}><label style={S.label}>Ledger Name *</label><input style={S.input} value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))} placeholder="Trade/Legal name auto-fills from GSTIN"/></div>
       <div style={S.fg}><label style={S.label}>Under Group *</label><select style={S.select} value={f.group_id} onChange={e=>setF(p=>({...p,group_id:e.target.value}))}>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></div>
       <div style={S.col2}>
         <div style={S.fg}><label style={S.label}>Opening Balance</label><input type="number" style={S.input} value={f.opening_balance} onChange={e=>setF(p=>({...p,opening_balance:e.target.value}))}/></div>
         <div style={S.fg}><label style={S.label}>Dr/Cr</label><select style={S.select} value={f.opening_type} onChange={e=>setF(p=>({...p,opening_type:e.target.value}))}><option>Dr</option><option>Cr</option></select></div>
       </div>
-      <div style={S.fg}><label style={S.label}>GSTIN (for parties)</label><input style={S.input} value={f.gstin} onChange={e=>setF(p=>({...p,gstin:e.target.value.toUpperCase()}))}/></div>
       <div style={S.fg}><label style={S.label}>Address</label><textarea style={{...S.input,minHeight:50}} value={f.address} onChange={e=>setF(p=>({...p,address:e.target.value}))}/></div>
+      <div style={S.fg}><label style={S.label}>Phone</label><input style={S.input} value={f.phone} onChange={e=>setF(p=>({...p,phone:e.target.value}))}/></div>
       <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={S.btnO}>Cancel</button><button onClick={save} style={S.btn}>Save</button></div>
     </Modal>)}
     {viewLedger&&(<Modal title={`${viewLedger.name} — Statement`} onClose={()=>{setViewLedger(null);setStmt(null);}} wide>
@@ -1245,7 +1254,6 @@ const NAV=[
   {key:"dashboard",icon:"🏠",label:"Dashboard",group:"MAIN"},
   {key:"ledgers",  icon:"📒",label:"Ledgers",         group:"MASTERS"},
   {key:"groups",   icon:"🗂",label:"Chart of Accounts",group:"MASTERS"},
-  {key:"parties",  icon:"👥",label:"Parties",         group:"MASTERS"},
   {key:"products", icon:"📦",label:"Products & Stock",group:"MASTERS"},
   {key:"vouchers", icon:"✏️",label:"Voucher Entry (F4-F9)",group:"TRANSACTIONS"},
   {key:"sales",    icon:"📄",label:"Sales Invoice",   group:"TRANSACTIONS"},
@@ -1253,7 +1261,7 @@ const NAV=[
   {key:"bank",     icon:"🏦",label:"Bank Statement",  group:"TRANSACTIONS"},
   {key:"bank-recon",icon:"⇌",label:"Bank Reconciliation",group:"TRANSACTIONS"},
   {key:"acc-reports",icon:"📊",label:"Accounting Reports",group:"REPORTS"},
-  {key:"gst-clients",icon:"🏢",label:"GST Clients",   group:"GST SUITE"},
+  {key:"bank-book",icon:"🏦",label:"Bank Book (Monthly)",group:"REPORTS"},
   {key:"gstr1",    icon:"📤",label:"GSTR-1",          group:"GST SUITE"},
   {key:"gstr3b",   icon:"📑",label:"GSTR-3B",         group:"GST SUITE"},
   {key:"reconcile",icon:"⇄",label:"GST Reconciliation",group:"GST SUITE"},
@@ -1341,7 +1349,6 @@ export default function App(){
             {view==="dashboard"  &&<Dashboard token={token} company={company} setView={setView}/>}
             {view==="ledgers"    &&<LedgerManager token={token} toast={showToast} company={company}/>}
             {view==="groups"     &&<ChartOfAccounts token={token} toast={showToast} company={company}/>}
-            {view==="parties"    &&<Parties token={token} toast={showToast} company={company}/>}
             {view==="products"   &&<Products token={token} toast={showToast} company={company}/>}
             {view==="vouchers"   &&<VoucherEntry token={token} toast={showToast} company={company}/>}
             {view==="sales"      &&<InvoiceList token={token} toast={showToast} type="SALES" company={company} setView={setView}/>}
@@ -1349,17 +1356,16 @@ export default function App(){
             {view==="bank"       &&<BankStatement token={token} toast={showToast} company={company} setView={setView}/>}
             {view==="bank-recon" &&<BankReconciliation token={token} toast={showToast} company={company}/>}
             {view==="acc-reports"&&<AccountingReports token={token} toast={showToast} company={company}/>}
-            {view==="gst-clients"&&<GSTClients token={token} toast={showToast} company={company}/>}
+            {view==="bank-book"  &&<BankBook token={token} toast={showToast} company={company}/>}
             {view==="gstr1"      &&<GSTRFiling token={token} toast={showToast} company={company} formType="gstr1"/>}
             {view==="gstr3b"     &&<GSTRFiling token={token} toast={showToast} company={company} formType="gstr3b"/>}
             {view==="ai-invoice" &&<AIInvoiceScanner token={token} toast={showToast} company={company} setView={setView}/>}
-            {["reconcile","gstr2a","einvoice","ewaybill","hsn","ai-assist"].includes(view)&&(
-              <div style={{...S.card,textAlign:"center",padding:50,color:C.muted}}>
-                <div style={{fontSize:40,marginBottom:10}}>🚧</div>
-                <div style={{fontWeight:600,color:C.text,marginBottom:6}}>{TITLES[view]}</div>
-                <div style={{fontSize:12}}>Coming in next update — company-scoped to {company?.name}</div>
-              </div>
-            )}
+            {view==="hsn"        &&<HSNManager token={token} toast={showToast}/>}
+            {view==="einvoice"   &&<EInvoice token={token} toast={showToast} company={company}/>}
+            {view==="ewaybill"   &&<EWayBill token={token} toast={showToast} company={company}/>}
+            {view==="reconcile"  &&<GSTReconciliation token={token} toast={showToast} company={company}/>}
+            {view==="gstr2a"     &&<GSTR2AImport token={token} toast={showToast} company={company}/>}
+            {view==="ai-assist"  &&<AIAssistant token={token} toast={showToast} company={company}/>}
           </>)}
           {view==="settings"&&<Settings token={token} user={user} toast={showToast} onLogout={logout}/>}
           {view==="backup"&&<BackupRestore token={token} toast={showToast} company={company}/>}
@@ -1374,4 +1380,327 @@ export default function App(){
       {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
     </div>
   );
+}
+
+// ── HSN MANAGER ──────────────────────────────────────────────────────────────
+function HSNManager({token,toast}){
+  const[file,setFile]=useState(null);const[uploading,setUploading]=useState(false);const[codes,setCodes]=useState([]);const[search,setSearch]=useState("");const[loading,setLoading]=useState(true);
+  const load=useCallback(()=>{setLoading(true);api(`/hsn/codes${search?`?search=${encodeURIComponent(search)}`:""}`, "GET",null,token).then(d=>{setCodes(d.codes||[]);setLoading(false);}).catch(()=>setLoading(false));},[token,search]);
+  useEffect(()=>{load();},[load]);
+  const upload=async()=>{
+    if(!file)return toast("Select file","error");
+    setUploading(true);
+    try{
+      const fd=new FormData();fd.append("file",file);
+      const res=await fetch(`${API}/hsn/upload`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
+      const d=await res.json();
+      if(d.success){toast(`✅ Imported ${d.imported||0} codes!`,"success");setFile(null);load();}
+      else toast(d.message,"error");
+    }catch(e){toast(e.message,"error");}
+    setUploading(false);
+  };
+  return(<div>
+    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#58a6ff",marginBottom:6}}>🏷 HSN/SAC Code Library</div>
+      <div style={{fontSize:12,color:C.sub}}>Upload Excel/CSV with columns: HSN Code, Description, GST Rate, Unit. Used for autocomplete in invoicing.</div>
+    </div>
+    <div style={S.card}>
+      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+        <label style={{...S.btnO,cursor:"pointer"}}>{file?file.name:"Choose Excel/CSV"}<input type="file" accept=".xlsx,.xls,.csv" onChange={e=>setFile(e.target.files[0])} style={{display:"none"}}/></label>
+        <button onClick={upload} disabled={!file||uploading} style={{...S.btnG,opacity:!file||uploading?0.5:1}}>{uploading?"Uploading...":"Upload & Import"}</button>
+      </div>
+    </div>
+    <div style={{margin:"14px 0"}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search HSN code or description..." style={{...S.input,width:300}}/></div>
+    {loading?<Spinner/>:(
+      <div style={S.card}>
+        {codes.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No HSN codes yet. Upload a list above.</div>:(
+          <table style={S.tbl}><thead><tr>{["Code","Description","GST%","Unit"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{codes.slice(0,100).map(c=>(<tr key={c.code}><td style={{...S.td,...S.mono,fontWeight:600}}>{c.code}</td><td style={S.td}>{c.description}</td><td style={S.td}>{c.gst_rate}%</td><td style={S.tdR}>{c.uom}</td></tr>))}</tbody></table>
+        )}
+        {codes.length>100&&<div style={{textAlign:"center",padding:10,color:C.muted,fontSize:11}}>Showing first 100 of {codes.length}</div>}
+      </div>
+    )}
+  </div>);
+}
+
+// ── E-INVOICE ────────────────────────────────────────────────────────────────
+function EInvoice({token,toast,company}){
+  const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);const[generating,setGenerating]=useState(null);const[result,setResult]=useState(null);
+  const cid=company?.id;
+  const load=useCallback(()=>{if(!cid)return;setLoading(true);api(`/accounting/companies/${cid}/einvoice`,"GET",null,token).then(d=>{setInvoices(d.invoices||[]);setLoading(false);}).catch(()=>setLoading(false));},[cid,token]);
+  useEffect(()=>{load();},[load]);
+  const generate=async id=>{setGenerating(id);try{const d=await api(`/accounting/companies/${cid}/einvoice/generate`,"POST",{invoice_id:id},token);setResult(d);toast("✅ IRN Generated","success");load();}catch(e){toast(e.message,"error");}setGenerating(null);};
+  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN")}`;
+  if(!cid)return null;
+  return(<div>
+    <div style={{...S.card,background:"#1a0a2e",border:"1px solid #6e40c9",marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#bf91f3",marginBottom:6}}>🔖 E-Invoice (IRN Generation)</div>
+      <div style={{fontSize:12,color:C.sub}}>Generate IRN for B2B sales invoices of {company?.name}. Mandatory if turnover &gt; ₹5 Cr.</div>
+    </div>
+    {loading?<Spinner/>:(
+      <div style={S.card}>
+        {invoices.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No sales invoices yet</div>:(
+          <table style={S.tbl}><thead><tr>{["Invoice No","Date","Party","Amount","IRN","Action"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{invoices.map(inv=>(<tr key={inv.id}>
+            <td style={{...S.td,fontWeight:600,color:"#58a6ff"}}>{inv.invoice_no}</td>
+            <td style={S.td}>{inv.invoice_date}</td>
+            <td style={S.td}>{inv.party_name}</td>
+            <td style={S.td}>{fR(inv.total_amount)}</td>
+            <td style={{...S.td,...S.mono,fontSize:10}}>{inv.einvoice_irn?inv.einvoice_irn.substring(0,20)+"...":"—"}</td>
+            <td style={S.tdR}>{inv.einvoice_irn?badge("Generated","green"):<button onClick={()=>generate(inv.id)} disabled={generating===inv.id} style={{...S.btn,fontSize:10,padding:"4px 10px"}}>{generating===inv.id?"...":"Generate IRN"}</button>}</td>
+          </tr>))}</tbody></table>
+        )}
+      </div>
+    )}
+    {result&&(<Modal title="E-Invoice Generated" onClose={()=>setResult(null)}>
+      <div style={{...S.card,background:"#0d2818",border:"1px solid #238636"}}>
+        <div style={{marginBottom:6}}><b>IRN:</b> <span style={S.mono}>{result.irn}</span></div>
+        <div style={{marginBottom:6}}><b>Ack No:</b> {result.ack_no}</div>
+        <div style={{marginBottom:6}}><b>Ack Date:</b> {result.ack_date}</div>
+        <div><b>Invoice:</b> {result.invoice_no} — {fR(result.total_amount)}</div>
+      </div>
+    </Modal>)}
+  </div>);
+}
+
+// ── E-WAY BILL ───────────────────────────────────────────────────────────────
+function EWayBill({token,toast,company}){
+  const[invoices,setInvoices]=useState([]);const[loading,setLoading]=useState(true);const[modal,setModal]=useState(null);
+  const[f,setF]=useState({transporter_name:"",vehicle_no:"",distance:"100"});const[result,setResult]=useState(null);
+  const cid=company?.id;
+  const load=useCallback(()=>{if(!cid)return;setLoading(true);api(`/accounting/companies/${cid}/ewaybill`,"GET",null,token).then(d=>{setInvoices(d.invoices||[]);setLoading(false);}).catch(()=>setLoading(false));},[cid,token]);
+  useEffect(()=>{load();},[load]);
+  const generate=async()=>{try{const d=await api(`/accounting/companies/${cid}/ewaybill/generate`,"POST",{invoice_id:modal.id,...f},token);setResult(d);setModal(null);toast("✅ E-Way Bill Generated","success");load();}catch(e){toast(e.message,"error");}};
+  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN")}`;
+  if(!cid)return null;
+  return(<div>
+    <div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#e3b341",marginBottom:6}}>🚛 E-Way Bill</div>
+      <div style={{fontSize:12,color:C.sub}}>Required for goods movement &gt; ₹50,000. Shows {company?.name}'s sales invoices above ₹50,000.</div>
+    </div>
+    {loading?<Spinner/>:(
+      <div style={S.card}>
+        {invoices.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No invoices above ₹50,000</div>:(
+          <table style={S.tbl}><thead><tr>{["Invoice No","Date","Party","Amount","EWB No","Action"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{invoices.map(inv=>(<tr key={inv.id}>
+            <td style={{...S.td,fontWeight:600,color:"#58a6ff"}}>{inv.invoice_no}</td>
+            <td style={S.td}>{inv.invoice_date}</td>
+            <td style={S.td}>{inv.party_name}</td>
+            <td style={S.td}>{fR(inv.total_amount)}</td>
+            <td style={{...S.td,...S.mono}}>{inv.ewb_no||"—"}</td>
+            <td style={S.tdR}>{inv.ewb_no?badge("Generated","green"):<button onClick={()=>{setF({transporter_name:"",vehicle_no:"",distance:"100"});setModal(inv);}} style={{...S.btn,fontSize:10,padding:"4px 10px"}}>Generate</button>}</td>
+          </tr>))}</tbody></table>
+        )}
+      </div>
+    )}
+    {modal&&(<Modal title={`E-Way Bill — ${modal.invoice_no}`} onClose={()=>setModal(null)}>
+      <div style={S.fg}><label style={S.label}>Transporter Name</label><input style={S.input} value={f.transporter_name} onChange={e=>setF(p=>({...p,transporter_name:e.target.value}))}/></div>
+      <div style={S.fg}><label style={S.label}>Vehicle No</label><input style={S.input} value={f.vehicle_no} onChange={e=>setF(p=>({...p,vehicle_no:e.target.value}))} placeholder="MH12AB1234"/></div>
+      <div style={S.fg}><label style={S.label}>Distance (km)</label><input type="number" style={S.input} value={f.distance} onChange={e=>setF(p=>({...p,distance:e.target.value}))}/></div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setModal(null)} style={S.btnO}>Cancel</button><button onClick={generate} style={S.btn}>Generate E-Way Bill</button></div>
+    </Modal>)}
+    {result&&(<Modal title="E-Way Bill Generated" onClose={()=>setResult(null)}>
+      <div style={{...S.card,background:"#0d2818",border:"1px solid #238636"}}>
+        <div style={{marginBottom:6}}><b>EWB No:</b> <span style={S.mono}>{result.ewb_no}</span></div>
+        <div style={{marginBottom:6}}><b>Valid Till:</b> {result.valid_till}</div>
+        <div style={{marginBottom:6}}><b>Transporter:</b> {result.transporter_name}</div>
+        <div><b>Vehicle:</b> {result.vehicle_no||"—"} | Distance: {result.distance} km</div>
+      </div>
+    </Modal>)}
+  </div>);
+}
+
+// ── GST RECONCILIATION (2A vs Books) ────────────────────────────────────────
+function GSTReconciliation({token,toast,company}){
+  const[period,setPeriod]=useState("");
+  const[records,setRecords]=useState([]);const[summary,setSummary]=useState(null);const[loading,setLoading]=useState(false);
+  const cid=company?.id;
+  const PERIODS=[];for(let y=2026;y>=2022;y--)for(let m=12;m>=1;m--)PERIODS.push(`${String(m).padStart(2,"0")}-${y}`);
+  const load=async()=>{
+    if(!period)return toast("Select period","error");
+    setLoading(true);
+    try{const d=await api(`/accounting/companies/${cid}/reconciliation?period=${period}`, "GET",null,token);setRecords(d.records||[]);setSummary(d.summary);}catch(e){toast(e.message,"error");}
+    setLoading(false);
+  };
+  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN")}`;
+  if(!cid)return null;
+  return(<div>
+    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#58a6ff",marginBottom:6}}>⇄ GST Reconciliation — {company?.name}</div>
+      <div style={{fontSize:12,color:C.sub}}>Compares GSTR-2A (imported) data against this company's purchase books for the selected period.</div>
+    </div>
+    <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center"}}>
+      <select style={{...S.select,width:160}} value={period} onChange={e=>setPeriod(e.target.value)}><option value="">Select Period</option>{PERIODS.map(p=><option key={p}>{p}</option>)}</select>
+      <button onClick={load} style={S.btn}>Reconcile</button>
+    </div>
+    {loading?<Spinner/>:summary&&(<>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+        {[{l:"Total Records",v:summary.total,c:"#58a6ff"},{l:"Matched",v:summary.matched,c:"#3fb950"},{l:"Mismatched",v:summary.mismatched,c:"#e3b341"},{l:"Missing in Books",v:summary.missing,c:"#f85149"}].map(k=><div key={k.l} style={S.kpi}><div style={S.label}>{k.l}</div><div style={{fontSize:20,fontWeight:700,color:k.c}}>{k.v}</div></div>)}
+      </div>
+      <div style={S.card}>
+        {records.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No records. Import GSTR-2A first.</div>:(
+          <table style={S.tbl}><thead><tr>{["Vendor","Invoice No","Taxable","IGST","CGST","SGST","Status"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+          <tbody>{records.map(r=>(<tr key={r.id}><td style={{...S.td,fontWeight:600}}>{r.vendor_name}</td><td style={S.td}>{r.invoice_no}</td><td style={S.td}>{fR(r.taxable_value)}</td><td style={S.td}>{fR(r.igst)}</td><td style={S.td}>{fR(r.cgst)}</td><td style={S.td}>{fR(r.sgst)}</td><td style={S.tdR}>{badge(r.status,r.status==="matched"?"green":r.status==="mismatch"?"amber":"red")}</td></tr>))}</tbody></table>
+        )}
+      </div>
+    </>)}
+  </div>);
+}
+
+// ── GSTR-2A IMPORT ───────────────────────────────────────────────────────────
+function GSTR2AImport({token,toast,company}){
+  const[period,setPeriod]=useState("");
+  const[file,setFile]=useState(null);const[preview,setPreview]=useState(null);const[importing,setImporting]=useState(false);const[previewing,setPreviewing]=useState(false);
+  const cid=company?.id;
+  const PERIODS=[];for(let y=2026;y>=2022;y--)for(let m=12;m>=1;m--)PERIODS.push(`${String(m).padStart(2,"0")}-${y}`);
+
+  const doPreview=async()=>{
+    if(!file)return toast("Select Excel/CSV file","error");
+    setPreviewing(true);
+    try{
+      const fd=new FormData();fd.append("file",file);
+      const res=await fetch(`${API}/accounting/companies/${cid}/gstr2a/preview`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
+      const d=await res.json();
+      if(d.success)setPreview(d);else toast(d.message,"error");
+    }catch(e){toast(e.message,"error");}
+    setPreviewing(false);
+  };
+  const doImport=async()=>{
+    if(!period)return toast("Select period","error");
+    setImporting(true);
+    try{
+      const fd=new FormData();fd.append("file",file);fd.append("period",period);
+      const res=await fetch(`${API}/accounting/companies/${cid}/gstr2a/import`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
+      const d=await res.json();
+      if(d.success){toast(d.message,"success");setFile(null);setPreview(null);}else toast(d.message,"error");
+    }catch(e){toast(e.message,"error");}
+    setImporting(false);
+  };
+  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN")}`;
+  if(!cid)return null;
+  return(<div>
+    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#58a6ff",marginBottom:6}}>📥 GSTR-2A Import — {company?.name}</div>
+      <div style={{fontSize:12,color:C.sub}}>Download GSTR-2A from GST portal (Excel) → Upload here → Reconcile with books in "GST Reconciliation"</div>
+    </div>
+    <div style={S.col2}>
+      <div style={S.fg}><label style={S.label}>Period</label><select style={S.select} value={period} onChange={e=>setPeriod(e.target.value)}><option value="">Select</option>{PERIODS.map(p=><option key={p}>{p}</option>)}</select></div>
+      <div style={S.fg}><label style={S.label}>File</label><label style={{...S.btnO,cursor:"pointer",display:"block",textAlign:"center"}}>{file?file.name:"Choose Excel/CSV"}<input type="file" accept=".xlsx,.xls,.csv" onChange={e=>{setFile(e.target.files[0]);setPreview(null);}} style={{display:"none"}}/></label></div>
+    </div>
+    <div style={{display:"flex",gap:8,marginBottom:14}}>
+      <button onClick={doPreview} disabled={!file||previewing} style={{...S.btnO,opacity:!file?0.5:1}}>{previewing?"Loading...":"Preview"}</button>
+      <button onClick={doImport} disabled={!file||importing} style={{...S.btnG,opacity:!file?0.5:1}}>{importing?"Importing...":"Import for Reconciliation"}</button>
+    </div>
+    {preview&&(<div style={S.card}>
+      <div style={{fontSize:12,color:C.muted,marginBottom:8}}>{preview.count} total rows — showing first {preview.preview.length}</div>
+      <table style={S.tbl}><thead><tr>{["Vendor","GSTIN","Invoice No","Taxable","IGST","CGST","SGST"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+      <tbody>{preview.preview.map((r,i)=>(<tr key={i}><td style={S.td}>{r.vendor_name}</td><td style={{...S.td,...S.mono,fontSize:10}}>{r.gstin}</td><td style={S.td}>{r.invoice_no}</td><td style={S.td}>{fR(r.taxable_value)}</td><td style={S.td}>{fR(r.igst)}</td><td style={S.td}>{fR(r.cgst)}</td><td style={S.tdR}>{fR(r.sgst)}</td></tr>))}</tbody></table>
+    </div>)}
+  </div>);
+}
+
+// ── AI ASSISTANT (Chat) ──────────────────────────────────────────────────────
+function AIAssistant({token,toast,company}){
+  const[messages,setMessages]=useState([{role:"assistant",content:`Hi! I'm your AI assistant for ${company?.name||"your company"}. Ask me about GST, accounting, Tally entries, or tax compliance.`}]);
+  const[input,setInput]=useState("");const[sending,setSending]=useState(false);const cid=company?.id;
+  const send=async()=>{
+    if(!input.trim())return;
+    const msg=input;setInput("");
+    setMessages(p=>[...p,{role:"user",content:msg}]);
+    setSending(true);
+    try{
+      const d=await api(`/accounting/companies/${cid}/ai-chat`,"POST",{message:msg},token);
+      setMessages(p=>[...p,{role:"assistant",content:d.reply}]);
+    }catch(e){setMessages(p=>[...p,{role:"assistant",content:"⚠ "+e.message}]);}
+    setSending(false);
+  };
+  if(!cid)return null;
+  return(<div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 160px)"}}>
+    <div style={{flex:1,overflowY:"auto",...S.card,marginBottom:10}}>
+      {messages.map((m,i)=>(
+        <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",marginBottom:10}}>
+          <div style={{maxWidth:"75%",padding:"9px 14px",borderRadius:10,background:m.role==="user"?"#1F6FEB":"#21262D",color:m.role==="user"?"#fff":C.sub,fontSize:13,whiteSpace:"pre-wrap"}}>{m.content}</div>
+        </div>
+      ))}
+      {sending&&<div style={{color:C.muted,fontSize:12}}>AI is thinking...</div>}
+    </div>
+    <div style={{display:"flex",gap:8}}>
+      <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Ask about GST, accounting, Tally entries..." style={{...S.input,flex:1}}/>
+      <button onClick={send} disabled={sending} style={S.btn}>Send</button>
+    </div>
+  </div>);
+}
+
+// ── BANK BOOK — Month-wise (Tally-style) ────────────────────────────────────
+function BankBook({token,toast,company}){
+  const[bankLedgers,setBankLedgers]=useState([]);const[selected,setSelected]=useState("");
+  const[months,setMonths]=useState([]);const[expanded,setExpanded]=useState({});const[loading,setLoading]=useState(false);
+  const[detail,setDetail]=useState({});
+  const cid=company?.id;
+  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
+
+  useEffect(()=>{
+    if(!cid)return;
+    api(`/accounting/companies/${cid}/ledgers`,"GET",null,token).then(d=>{
+      const banks=(d.ledgers||[]).filter(l=>/bank|cash/i.test(l.name));
+      setBankLedgers(banks);
+      if(banks[0])setSelected(banks[0].id);
+    }).catch(()=>{});
+  },[cid]);
+
+  const load=useCallback(async()=>{
+    if(!selected||!cid)return;
+    setLoading(true);
+    try{
+      const d=await api(`/accounting/companies/${cid}/ledgers/${selected}/statement`,"GET",null,token);
+      const txns=d.transactions||[];
+      const byMonth={};
+      txns.forEach(t=>{
+        const m=t.date?.substring(0,7); // YYYY-MM
+        if(!byMonth[m])byMonth[m]={dr:0,cr:0,count:0,txns:[]};
+        byMonth[m].dr+=parseFloat(t.dr_amount||0);
+        byMonth[m].cr+=parseFloat(t.cr_amount||0);
+        byMonth[m].count++;
+        byMonth[m].txns.push(t);
+      });
+      const monthList=Object.keys(byMonth).sort().reverse().map(m=>({month:m,...byMonth[m]}));
+      setMonths(monthList);
+      setDetail(byMonth);
+    }catch(e){toast(e.message,"error");}
+    setLoading(false);
+  },[selected,cid,token]);
+  useEffect(()=>{load();},[load]);
+
+  const monthName=m=>{const[y,mo]=m.split("-");return new Date(y,mo-1).toLocaleString("en-IN",{month:"long",year:"numeric"});};
+
+  if(!cid)return null;
+  return(<div>
+    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#58a6ff",marginBottom:6}}>🏦 Bank Book — Month-wise Summary</div>
+      <div style={{fontSize:12,color:C.sub}}>All Bank/Cash voucher entries (from Bank Import, Sales, Purchase, manual vouchers) grouped by month — like Tally's Bank Book.</div>
+    </div>
+    {bankLedgers.length===0?<div style={{...S.card,textAlign:"center",padding:30,color:C.muted}}>No Bank/Cash ledgers found. Create one in Ledgers (under Asset group).</div>:(<>
+      <div style={{marginBottom:14}}>
+        <select style={{...S.select,width:240}} value={selected} onChange={e=>setSelected(e.target.value)}>{bankLedgers.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select>
+      </div>
+      {loading?<Spinner/>:months.length===0?<div style={{...S.card,textAlign:"center",padding:30,color:C.muted}}>No transactions for this ledger yet</div>:(
+        months.map(m=>(
+          <div key={m.month} style={{...S.card,marginBottom:8}}>
+            <div onClick={()=>setExpanded(p=>({...p,[m.month]:!p[m.month]}))} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+              <div style={{fontWeight:700,color:C.text,fontSize:13}}>{expanded[m.month]?"▾":"▸"} {monthName(m.month)} <span style={{color:C.muted,fontSize:11,fontWeight:400}}>({m.count} entries)</span></div>
+              <div style={{display:"flex",gap:16}}>
+                <span style={{color:"#3fb950",fontWeight:600,fontSize:12}}>Dr {fR(m.dr)}</span>
+                <span style={{color:"#f85149",fontWeight:600,fontSize:12}}>Cr {fR(m.cr)}</span>
+                <span style={{color:m.dr-m.cr>=0?"#3fb950":"#f85149",fontWeight:700,fontSize:12}}>Net {fR(Math.abs(m.dr-m.cr))} {m.dr-m.cr>=0?"Dr":"Cr"}</span>
+              </div>
+            </div>
+            {expanded[m.month]&&(
+              <table style={{...S.tbl,marginTop:10}}><thead><tr>{["Date","Voucher","Type","Narration","Dr","Cr"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+              <tbody>{m.txns.map((t,i)=>(<tr key={i}><td style={S.td}>{t.date}</td><td style={{...S.td,color:"#58a6ff"}}>{t.voucher_no}</td><td style={S.td}>{badge(t.voucher_type,t.voucher_type==="RECEIPT"?"green":t.voucher_type==="PAYMENT"?"red":"gray")}</td><td style={{...S.td,maxWidth:240}}>{t.narration||t.v_narration}</td><td style={{...S.td,color:"#3fb950"}}>{t.dr_amount>0?fR(t.dr_amount):"—"}</td><td style={{...S.tdR,color:"#f85149"}}>{t.cr_amount>0?fR(t.cr_amount):"—"}</td></tr>))}</tbody></table>
+            )}
+          </div>
+        ))
+      )}
+    </>)}
+  </div>);
 }
