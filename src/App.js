@@ -24,10 +24,10 @@ const C={
 };
 const S={
   app:{display:"flex",flexDirection:"column",minHeight:"100vh",background:C.bg,fontFamily:"'Inter',system-ui,sans-serif",fontSize:13,color:C.sub},
-  topbar:{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"0 16px",height:50,display:"flex",alignItems:"center",gap:12,flexShrink:0,position:"sticky",top:0,zIndex:100},
-  body:{display:"flex",flex:1,overflow:"hidden"},
+  topbar:{background:C.card,borderBottom:`1px solid ${C.border}`,padding:"0 10px",height:50,display:"flex",alignItems:"center",gap:8,flexShrink:0,position:"sticky",top:0,zIndex:100},
+  body:{display:"flex",flex:1,overflow:"hidden",position:"relative"},
   sidebar:{width:200,minWidth:200,background:"#0D1117",borderRight:`1px solid ${C.border}`,overflowY:"auto",flexShrink:0},
-  main:{flex:1,overflowY:"auto",padding:18},
+  main:{flex:1,overflowY:"auto",padding:18,minWidth:0},
   card:{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:16,marginBottom:12},
   kpi:{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:14},
   label:{fontSize:11,color:C.muted,display:"block",marginBottom:5,fontWeight:500},
@@ -43,9 +43,37 @@ const S={
   td:{padding:"8px 10px",borderBottom:`1px solid ${C.border}`,color:C.sub,verticalAlign:"middle"},
   tdR:{padding:"8px 10px",color:C.sub,verticalAlign:"middle"},
   mono:{fontFamily:"monospace",fontSize:11,color:C.muted},
-  col2:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14},
-  col3:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14},
+  col2:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14},
+  col3:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:14},
 };
+
+// ── RESPONSIVE HELPER ───────────────────────────────────────────────────────
+function useIsMobile(){
+  const[isMobile,setIsMobile]=useState(()=>typeof window!=="undefined"&&window.innerWidth<=820);
+  useEffect(()=>{
+    const h=()=>setIsMobile(window.innerWidth<=820);
+    window.addEventListener("resize",h);
+    return()=>window.removeEventListener("resize",h);
+  },[]);
+  return isMobile;
+}
+
+// Global responsive styles (tables scroll horizontally on small screens)
+const GlobalStyles=()=>(
+  <style>{`
+    * { box-sizing: border-box; }
+    @media (max-width: 820px) {
+      table { font-size: 11px; display: block; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; border: none !important; }
+      table thead, table tbody, table tr { display: table; width: 100%; table-layout: auto; }
+      table tfoot { display: block; }
+      table tfoot tr { display: table; width: 100%; }
+    }
+    input, select, textarea { font-size: 13px; }
+    @media (max-width: 480px) {
+      table { font-size: 10px; }
+    }
+  `}</style>
+);
 
 // Badge
 const badge=(t,c="gray")=>{
@@ -138,6 +166,7 @@ function AuthScreen({onAuth}){
 
 // ── SUITE DASHBOARD ────────────────────────────────────────────────────────
 function Dashboard({token,company,setView}){
+  const isMobile=useIsMobile();
   const[stats,setStats]=useState(null);
   useEffect(()=>{
     if(!company)return;
@@ -162,7 +191,7 @@ function Dashboard({token,company,setView}){
         <div style={{fontSize:12,color:C.sub,marginTop:4}}>Click "Change Company" in the top bar to start</div>
       </div>}
       {company&&stats?.inv&&(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"repeat(2,1fr)":"repeat(4,1fr)",gap:10,marginBottom:20}}>
           {[{l:"Monthly Sales",v:fmtM(stats.inv.monthly_sales||0),c:"#3fb950",i:"📈"},{l:"Monthly Purchase",v:fmtM(stats.inv.monthly_purchases||0),c:"#58a6ff",i:"📉"},{l:"Outstanding",v:fmtM(stats.inv.total_outstanding||0),c:"#e3b341",i:"⏳"},{l:"Overdue",v:fmtM(stats.inv.overdue_amount||0),c:"#f85149",i:"🔴"}].map(k=>(
             <div key={k.l} style={S.kpi}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:10,color:C.muted,fontWeight:600,textTransform:"uppercase",letterSpacing:.5}}>{k.l}</span><span>{k.i}</span></div>
@@ -172,7 +201,7 @@ function Dashboard({token,company,setView}){
         </div>
       )}
       <div style={{fontSize:11,color:C.muted,fontWeight:600,letterSpacing:1,marginBottom:10}}>SELECT A MODULE</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:14}}>
         {SUITES.map(s=>(
           <div key={s.title} onClick={()=>setView(s.keys[0])} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:20,cursor:"pointer",transition:"border-color 0.2s"}}
             onMouseEnter={e=>e.currentTarget.style.borderColor=s.color}
@@ -231,7 +260,17 @@ function CompanyManager({token,toast,onSelect,current}){
       <div style={S.col2}>
         <div>
           <div style={S.fg}><label style={S.label}>Company Name *</label><input style={S.input} placeholder="My Business Pvt Ltd" value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))}/></div>
-          <div style={S.fg}><label style={S.label}>GSTIN</label><input style={S.input} value={f.gstin} onChange={e=>setF(p=>({...p,gstin:e.target.value.toUpperCase()}))}/></div>
+          <div style={S.fg}><label style={S.label}>GSTIN (optional — auto-fills details)</label>
+            <GSTINInput value={f.gstin} onChange={v=>setF(p=>({...p,gstin:v}))} token={token} onVerified={info=>setF(p=>({
+              ...p,
+              gstin:info.gstin,
+              name:info.business_name||p.name,
+              pan:info.pan?info.pan.toUpperCase():p.pan,
+              address:info.address||p.address,
+              city:info.city||p.city,
+              state:info.state||p.state,
+            }))}/>
+          </div>
           <div style={S.fg}><label style={S.label}>PAN</label><input style={S.input} value={f.pan} onChange={e=>setF(p=>({...p,pan:e.target.value.toUpperCase()}))}/></div>
           <div style={S.fg}><label style={S.label}>Address</label><textarea style={{...S.input,minHeight:60,resize:"vertical"}} value={f.address} onChange={e=>setF(p=>({...p,address:e.target.value}))}/></div>
         </div>
@@ -264,6 +303,7 @@ const VTYPES={
 };
 
 function VoucherEntry({token,toast,company}){
+  const isMobile=useIsMobile();
   const[vtype,setVtype]=useState("RECEIPT");
   const[ledgers,setLedgers]=useState([]);
   const[vouchers,setVouchers]=useState([]);
@@ -337,7 +377,7 @@ function VoucherEntry({token,toast,company}){
   if(!cid)return<CompanyCtx company={null} onGo={()=>{}}/>;
 
   return(
-    <div style={{height:"calc(100vh - 100px)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div style={{height:isMobile?"auto":"calc(100vh - 100px)",display:"flex",flexDirection:"column",overflow:isMobile?"visible":"hidden"}}>
       {/* Tab bar */}
       <div style={{display:"flex",gap:4,marginBottom:10}}>
         {[{k:"new",l:"📝 New Entry"},{k:"list",l:"📋 Voucher List"}].map(t=>(
@@ -346,9 +386,9 @@ function VoucherEntry({token,toast,company}){
       </div>
 
       {tab==="new"&&(
-        <div style={{display:"flex",flex:1,gap:0,overflow:"hidden",border:`1px solid ${C.border}`,borderRadius:10,background:"#0a0f15"}}>
+        <div style={{display:"flex",flexDirection:isMobile?"column":"row",flex:1,gap:0,overflow:isMobile?"visible":"hidden",border:`1px solid ${C.border}`,borderRadius:10,background:"#0a0f15"}}>
           {/* MAIN VOUCHER AREA */}
-          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:isMobile?"visible":"hidden",minWidth:0}}>
             {/* Top bar - like Tally */}
             <div style={{background:"#111827",borderBottom:`1px solid ${C.border}`,padding:"8px 14px",display:"flex",alignItems:"center",gap:16,flexShrink:0}}>
               <div style={{background:vt.color,color:"#fff",padding:"4px 14px",borderRadius:6,fontSize:13,fontWeight:700,minWidth:80,textAlign:"center"}}>{vt.label}</div>
@@ -449,27 +489,39 @@ function VoucherEntry({token,toast,company}){
             </div>
           </div>
 
-          {/* RIGHT PANEL — like Tally */}
-          <div style={{width:160,background:"#0a0e15",borderLeft:`1px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
-            <div style={{padding:"8px 6px",borderBottom:`1px solid ${C.border}`,fontSize:10,color:C.muted,fontWeight:600,textAlign:"center",letterSpacing:1}}>VOUCHER TYPE</div>
-            <div style={{flex:1,padding:"6px 0"}}>
+          {/* RIGHT PANEL — like Tally (horizontal scroll on mobile) */}
+          {isMobile?(
+            <div style={{borderTop:`1px solid ${C.border}`,padding:"8px 10px",display:"flex",gap:6,overflowX:"auto"}}>
               {Object.values(VTYPES).map(v=>(
-                <button key={v.key} onClick={()=>setVtype(v.key)} style={{display:"flex",width:"100%",alignItems:"center",gap:8,padding:"9px 10px",border:"none",background:vtype===v.key?"#1a2744":"transparent",color:vtype===v.key?"#58a6ff":C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:11,fontWeight:vtype===v.key?700:400,borderLeft:vtype===v.key?`3px solid ${v.color}`:"3px solid transparent",textAlign:"left"}}>
-                  <span style={{fontSize:10,color:vtype===v.key?v.color:C.muted,minWidth:20,fontWeight:700}}>{v.f}</span>
+                <button key={v.key} onClick={()=>setVtype(v.key)} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",border:`1px solid ${vtype===v.key?v.color:C.border}`,borderRadius:7,background:vtype===v.key?"#1a2744":"transparent",color:vtype===v.key?"#58a6ff":C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:11,fontWeight:vtype===v.key?700:400,whiteSpace:"nowrap",flexShrink:0}}>
+                  <span style={{fontSize:10,color:vtype===v.key?v.color:C.muted,fontWeight:700}}>{v.f}</span>
                   <span>{v.label}</span>
                 </button>
               ))}
+              <button onClick={()=>setTab("list")} style={{padding:"7px 12px",border:`1px solid ${C.border}`,borderRadius:7,background:"transparent",color:C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:11,whiteSpace:"nowrap",flexShrink:0}}>📋 List</button>
             </div>
-            <div style={{borderTop:`1px solid ${C.border}`,padding:"6px 0"}}>
-              {[{l:"E: Autofill",a:null},{l:"H: Change Mode",a:null},{l:"I: More Details",a:null}].map(x=>(
-                <button key={x.l} style={{display:"flex",width:"100%",padding:"7px 10px",border:"none",background:"transparent",color:C.muted,cursor:"default",fontFamily:"inherit",fontSize:10,textAlign:"left"}}>{x.l}</button>
-              ))}
+          ):(
+            <div style={{width:160,background:"#0a0e15",borderLeft:`1px solid ${C.border}`,display:"flex",flexDirection:"column",flexShrink:0}}>
+              <div style={{padding:"8px 6px",borderBottom:`1px solid ${C.border}`,fontSize:10,color:C.muted,fontWeight:600,textAlign:"center",letterSpacing:1}}>VOUCHER TYPE</div>
+              <div style={{flex:1,padding:"6px 0"}}>
+                {Object.values(VTYPES).map(v=>(
+                  <button key={v.key} onClick={()=>setVtype(v.key)} style={{display:"flex",width:"100%",alignItems:"center",gap:8,padding:"9px 10px",border:"none",background:vtype===v.key?"#1a2744":"transparent",color:vtype===v.key?"#58a6ff":C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:11,fontWeight:vtype===v.key?700:400,borderLeft:vtype===v.key?`3px solid ${v.color}`:"3px solid transparent",textAlign:"left"}}>
+                    <span style={{fontSize:10,color:vtype===v.key?v.color:C.muted,minWidth:20,fontWeight:700}}>{v.f}</span>
+                    <span>{v.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div style={{borderTop:`1px solid ${C.border}`,padding:"6px 0"}}>
+                {[{l:"E: Autofill",a:null},{l:"H: Change Mode",a:null},{l:"I: More Details",a:null}].map(x=>(
+                  <button key={x.l} style={{display:"flex",width:"100%",padding:"7px 10px",border:"none",background:"transparent",color:C.muted,cursor:"default",fontFamily:"inherit",fontSize:10,textAlign:"left"}}>{x.l}</button>
+                ))}
+              </div>
+              <div style={{borderTop:`1px solid ${C.border}`,padding:"6px 0"}}>
+                <button style={{display:"flex",width:"100%",padding:"7px 10px",border:"none",background:"transparent",color:C.muted,fontFamily:"inherit",fontSize:10,textAlign:"left",cursor:"pointer"}}
+                  onClick={()=>setTab("list")}>Q: Voucher List</button>
+              </div>
             </div>
-            <div style={{borderTop:`1px solid ${C.border}`,padding:"6px 0"}}>
-              <button style={{display:"flex",width:"100%",padding:"7px 10px",border:"none",background:"transparent",color:C.muted,fontFamily:"inherit",fontSize:10,textAlign:"left",cursor:"pointer"}}
-                onClick={()=>setTab("list")}>Q: Voucher List</button>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -685,21 +737,25 @@ function HSNInput({value,onChange,onSelect,token,placeholder}){
 
 // ── GSTIN AUTOCOMPLETE/VALIDATE ──────────────────────────────────────────────
 function GSTINInput({value,onChange,onVerified,token}){
-  const[checking,setChecking]=useState(false);const[status,setStatus]=useState(null);
+  const[checking,setChecking]=useState(false);const[status,setStatus]=useState(null);const[errMsg,setErrMsg]=useState("");
   const verify=async()=>{
     if(!value||value.length!==15)return;
-    setChecking(true);
-    try{const d=await api(`/gstin/lookup/${value}`,"GET",null,token);
-      if(d.success){setStatus("valid");onVerified&&onVerified(d.data);}
-      else setStatus("invalid");
-    }catch(e){setStatus("invalid");}
+    setChecking(true);setErrMsg("");
+    try{
+      const d=await api(`/gstin/lookup/${value}`,"GET",null,token);
+      if(d&&d.success&&d.valid){setStatus("valid");onVerified&&onVerified(d);}
+      else{setStatus("invalid");setErrMsg(d?.message||"Invalid GSTIN");}
+    }catch(e){setStatus("invalid");setErrMsg(e.message||"Verification failed");}
     setChecking(false);
   };
-  return(<div style={{position:"relative"}}>
-    <input style={{...S.input,paddingRight:70}} value={value} maxLength={15} onChange={e=>{onChange(e.target.value.toUpperCase());setStatus(null);}} onBlur={verify} placeholder="22AAAAA0000A1Z5"/>
-    <div style={{position:"absolute",right:8,top:6,fontSize:10}}>
-      {checking?"⏳":status==="valid"?<span style={{color:"#3fb950"}}>✓ Valid</span>:status==="invalid"?<span style={{color:"#f85149"}}>✗ Invalid</span>:value.length===15?<button onClick={verify} style={{background:"none",border:"none",color:"#58a6ff",cursor:"pointer",fontSize:10}}>Verify</button>:null}
+  return(<div>
+    <div style={{position:"relative"}}>
+      <input style={{...S.input,paddingRight:70}} value={value} maxLength={15} onChange={e=>{onChange(e.target.value.toUpperCase());setStatus(null);setErrMsg("");}} onBlur={verify} placeholder="22AAAAA0000A1Z5"/>
+      <div style={{position:"absolute",right:8,top:6,fontSize:10}}>
+        {checking?"⏳":status==="valid"?<span style={{color:"#3fb950"}}>✓ Valid</span>:status==="invalid"?<span style={{color:"#f85149"}}>✗ Invalid</span>:value.length===15?<button onClick={verify} style={{background:"none",border:"none",color:"#58a6ff",cursor:"pointer",fontSize:10}}>Verify</button>:null}
+      </div>
     </div>
+    {errMsg&&<div style={{fontSize:11,color:"#f85149",marginTop:4}}>{errMsg}</div>}
   </div>);
 }
 
@@ -1144,75 +1200,162 @@ function BankReconciliation({token,toast,company}){
 }
 
 // ── AI INVOICE SCANNER (image/PDF → voucher) ────────────────────────────────
-function AIInvoiceScanner({token,toast,company,setView}){
+function AIInvoiceScanner({token,toast,company}){
   const[file,setFile]=useState(null);const[preview,setPreview]=useState(null);const[scanning,setScanning]=useState(false);const[saving,setSaving]=useState(false);
-  const[ledgers,setLedgers]=useState([]);const[items,setItems]=useState([]);const[meta,setMeta]=useState({date:today(),narration:"",voucher_type:"PURCHASE"});
+  const[ledgers,setLedgers]=useState([]);const[ext,setExt]=useState(null);
   const cid=company?.id;
   useEffect(()=>{if(cid)api(`/accounting/companies/${cid}/ledgers`,"GET",null,token).then(d=>setLedgers(d.ledgers||[])).catch(()=>{});},[cid]);
 
-  const onFile=e=>{const f=e.target.files[0];setFile(f);if(f){const r=new FileReader();r.onload=ev=>setPreview(ev.target.result);r.readAsDataURL(f);}};
+  const onFile=e=>{const f=e.target.files[0];setFile(f);setExt(null);if(f){const r=new FileReader();r.onload=ev=>setPreview(ev.target.result);r.readAsDataURL(f);}};
+
+  const findLedger=name=>ledgers.find(l=>l.name.toLowerCase()===String(name||"").toLowerCase());
+  const findLedgerLike=re=>ledgers.find(l=>re.test(l.name));
 
   const scan=async()=>{
-    if(!file)return toast("Select an image/PDF","error");
+    if(!file)return toast("Select an image","error");
     setScanning(true);
     try{
       const fd=new FormData();fd.append("file",file);fd.append("company_id",cid);
       const res=await fetch(`${API}/ai/scan-invoice`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
       const d=await res.json();
       if(d.success){
-        setMeta({date:d.data.date||today(),narration:d.data.vendor_name||d.data.description||"",voucher_type:d.data.type==="sales"?"SALES":"PURCHASE"});
-        setItems((d.data.items||[]).map(it=>({...it,suggested_ledger:it.suggested_ledger||"Suspense Account"})));
-        toast("✅ Scanned! Review and post.","success");
+        const data=d.data;
+        // Match party ledger by name (existing Sundry Debtor/Creditor)
+        const partyLedger=ledgers.find(l=>l.name.toLowerCase().includes(String(data.vendor_name||"").toLowerCase().split(" ")[0])&&/debtor|creditor/i.test(l.group_name||""));
+        setExt({
+          type:data.type||"purchase",
+          vendor_name:data.vendor_name||"",
+          vendor_gstin:data.vendor_gstin||"",
+          invoice_no:data.invoice_no||"",
+          invoice_date:data.invoice_date||today(),
+          taxable_amount:String(data.taxable_amount||0),
+          cgst_amount:String(data.cgst_amount||0),
+          sgst_amount:String(data.sgst_amount||0),
+          igst_amount:String(data.igst_amount||0),
+          total_amount:String(data.total_amount||0),
+          description:data.description||"",
+          party_ledger_id:partyLedger?.id||"",
+          expense_ledger:data.suggested_ledger||"Purchase Account",
+        });
+        toast("✅ Scanned! Review details below.","success");
       }else toast(d.message||"Scan failed","error");
     }catch(e){toast("Scan failed: "+e.message,"error");}
     setScanning(false);
   };
 
+  const setF=(k,v)=>setExt(p=>({...p,[k]:v}));
+
+  const computedTotal=()=>{
+    const t=parseFloat(ext?.taxable_amount)||0,c=parseFloat(ext?.cgst_amount)||0,s=parseFloat(ext?.sgst_amount)||0,i=parseFloat(ext?.igst_amount)||0;
+    return t+c+s+i;
+  };
+
   const post=async()=>{
-    if(items.length===0)return toast("No items to post","error");
+    if(!ext)return;
+    const taxable=parseFloat(ext.taxable_amount)||0;
+    const cgst=parseFloat(ext.cgst_amount)||0;
+    const sgst=parseFloat(ext.sgst_amount)||0;
+    const igst=parseFloat(ext.igst_amount)||0;
+    const total=parseFloat(ext.total_amount)||computedTotal();
+    if(total<=0)return toast("Total amount must be greater than 0","error");
+
+    const isPurchase=ext.type!=="sales";
+    // Find expense/purchase ledger
+    const expLedger=findLedger(ext.expense_ledger)||findLedger("Purchase Account")||findLedger("Suspense Account");
+    const cgstLedger=findLedger(isPurchase?"Input CGST":"Output CGST");
+    const sgstLedger=findLedger(isPurchase?"Input SGST":"Output SGST");
+    const igstLedger=findLedger(isPurchase?"Input IGST":"Output IGST");
+    const partyLedger=ext.party_ledger_id?ledgers.find(l=>l.id===ext.party_ledger_id):(findLedger("Suspense Account"));
+
+    if(!expLedger||!partyLedger)return toast("Required ledgers (Purchase/Suspense Account) not found in Chart of Accounts","error");
+
+    const narration=`${ext.vendor_name||"Unknown Vendor"} | Inv# ${ext.invoice_no||"-"} | ${ext.description||""}`.trim();
+    const items=[];
+    if(isPurchase){
+      if(taxable>0)items.push({ledger_id:expLedger.id,dr_amount:taxable,cr_amount:0,narration});
+      if(cgst>0&&cgstLedger)items.push({ledger_id:cgstLedger.id,dr_amount:cgst,cr_amount:0,narration:"CGST - "+narration});
+      if(sgst>0&&sgstLedger)items.push({ledger_id:sgstLedger.id,dr_amount:sgst,cr_amount:0,narration:"SGST - "+narration});
+      if(igst>0&&igstLedger)items.push({ledger_id:igstLedger.id,dr_amount:igst,cr_amount:0,narration:"IGST - "+narration});
+      items.push({ledger_id:partyLedger.id,dr_amount:0,cr_amount:total,narration});
+    }else{
+      items.push({ledger_id:partyLedger.id,dr_amount:total,cr_amount:0,narration});
+      if(taxable>0)items.push({ledger_id:expLedger.id,dr_amount:0,cr_amount:taxable,narration});
+      if(cgst>0&&cgstLedger)items.push({ledger_id:cgstLedger.id,dr_amount:0,cr_amount:cgst,narration:"CGST - "+narration});
+      if(sgst>0&&sgstLedger)items.push({ledger_id:sgstLedger.id,dr_amount:0,cr_amount:sgst,narration:"SGST - "+narration});
+      if(igst>0&&igstLedger)items.push({ledger_id:igstLedger.id,dr_amount:0,cr_amount:igst,narration:"IGST - "+narration});
+    }
+    // Balance check
+    const td=items.reduce((a,i)=>a+(i.dr_amount||0),0),tc=items.reduce((a,i)=>a+(i.cr_amount||0),0);
+    if(Math.abs(td-tc)>0.5)return toast(`Not balanced: Dr ${td} vs Cr ${tc}. Adjust amounts.`,"error");
+
     setSaving(true);
     try{
-      const total=items.reduce((a,i)=>a+(parseFloat(i.amount)||0),0);
-      const partyLedger=ledgers.find(l=>l.name===items[0]?.suggested_ledger)||ledgers.find(l=>l.name==="Suspense Account");
-      const expenseLedgers=items.map(it=>({ledger_id:(ledgers.find(l=>l.name===it.suggested_ledger)||ledgers.find(l=>l.name==="Suspense Account"))?.id,dr_amount:meta.voucher_type==="PURCHASE"?parseFloat(it.amount)||0:0,cr_amount:meta.voucher_type==="SALES"?parseFloat(it.amount)||0:0,narration:it.description}));
-      const partyEntry={ledger_id:partyLedger?.id,dr_amount:meta.voucher_type==="SALES"?total:0,cr_amount:meta.voucher_type==="PURCHASE"?total:0,narration:meta.narration};
-      await api(`/accounting/companies/${cid}/vouchers`,"POST",{voucher_type:meta.voucher_type,date:meta.date,narration:meta.narration,items:[...expenseLedgers,partyEntry]},token);
+      await api(`/accounting/companies/${cid}/vouchers`,"POST",{voucher_type:isPurchase?"PURCHASE":"SALES",date:ext.invoice_date,ref_no:ext.invoice_no,narration,items},token);
       toast("✅ Voucher posted!","success");
-      setFile(null);setPreview(null);setItems([]);
+      setFile(null);setPreview(null);setExt(null);
     }catch(e){toast(e.message,"error");}
     setSaving(false);
   };
+
+  const partyOptions=ledgers.filter(l=>/debtor|creditor/i.test(l.group_name||""));
+  const expenseOptions=ledgers.filter(l=>l.nature==="Expense"||l.name==="Purchase Account"||l.name==="Suspense Account");
 
   if(!cid)return null;
   return(<div>
     <div style={{...S.card,background:"#1a0a2e",border:"1px solid #6e40c9",marginBottom:14}}>
       <div style={{fontSize:13,fontWeight:700,color:"#bf91f3",marginBottom:6}}>🤖 AI Invoice/Bill Scanner</div>
-      <div style={{fontSize:12,color:C.sub}}>Upload a photo or PDF of an invoice/bill — AI extracts vendor, amount, items and suggests ledgers. Review & post as voucher.</div>
+      <div style={{fontSize:12,color:C.sub}}>Upload a photo of an invoice/bill — AI extracts vendor, invoice no, date, taxable amount, CGST/SGST/IGST and total. Review & post as voucher.</div>
     </div>
     <div style={S.col2}>
       <div style={S.card}>
         <div style={{border:`2px dashed ${C.border}`,borderRadius:10,padding:20,textAlign:"center",marginBottom:12,minHeight:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          {preview?(file.type.startsWith("image")?<img src={preview} alt="" style={{maxWidth:"100%",maxHeight:240,borderRadius:8}}/>:<div><div style={{fontSize:32}}>📄</div><div style={{fontSize:12,marginTop:6}}>{file.name}</div></div>):
-          <label style={{...S.btnO,cursor:"pointer"}}>Choose Invoice Image/PDF<input type="file" accept="image/*,.pdf" onChange={onFile} style={{display:"none"}}/></label>}
+          {preview?<img src={preview} alt="" style={{maxWidth:"100%",maxHeight:280,borderRadius:8}}/>:
+          <label style={{...S.btnO,cursor:"pointer"}}>Choose Invoice Image<input type="file" accept="image/*" onChange={onFile} style={{display:"none"}}/></label>}
         </div>
         <button onClick={scan} disabled={!file||scanning} style={{...S.btn,width:"100%",opacity:!file||scanning?0.5:1}}>{scanning?"🔍 Scanning with AI...":"🔍 Scan with AI"}</button>
       </div>
       <div style={S.card}>
-        <div style={{fontSize:12,fontWeight:600,marginBottom:10,color:C.text}}>Extracted Details</div>
-        {items.length===0?<div style={{textAlign:"center",padding:40,color:C.muted,fontSize:12}}>Scan an invoice to see extracted items</div>:(<>
+        <div style={{fontSize:12,fontWeight:600,marginBottom:10,color:C.text}}>Extracted Details — Review &amp; Edit</div>
+        {!ext?<div style={{textAlign:"center",padding:40,color:C.muted,fontSize:12}}>Scan an invoice to see extracted details</div>:(<>
           <div style={S.col2}>
-            <div style={S.fg}><label style={S.label}>Type</label><select style={S.select} value={meta.voucher_type} onChange={e=>setMeta(p=>({...p,voucher_type:e.target.value}))}><option>PURCHASE</option><option>SALES</option></select></div>
-            <div style={S.fg}><label style={S.label}>Date</label><input type="date" style={S.input} value={meta.date} onChange={e=>setMeta(p=>({...p,date:e.target.value}))}/></div>
+            <div style={S.fg}><label style={S.label}>Type</label><select style={S.select} value={ext.type} onChange={e=>setF("type",e.target.value)}><option value="purchase">Purchase</option><option value="sales">Sales</option></select></div>
+            <div style={S.fg}><label style={S.label}>Date</label><input type="date" style={S.input} value={ext.invoice_date} onChange={e=>setF("invoice_date",e.target.value)}/></div>
           </div>
-          <div style={S.fg}><label style={S.label}>Vendor/Narration</label><input style={S.input} value={meta.narration} onChange={e=>setMeta(p=>({...p,narration:e.target.value}))}/></div>
-          {items.map((it,i)=>(
-            <div key={i} style={{...S.card,padding:10,marginBottom:8}}>
-              <div style={{fontSize:12,fontWeight:600,marginBottom:6}}>{it.description} — ₹{it.amount}</div>
-              <select style={{...S.select,fontSize:11}} value={it.suggested_ledger} onChange={e=>{const n=[...items];n[i]={...n[i],suggested_ledger:e.target.value};setItems(n);}}>
-                {ledgers.map(l=><option key={l.id} value={l.name}>{l.name}</option>)}
-              </select>
+          <div style={S.col2}>
+            <div style={S.fg}><label style={S.label}>Vendor/Party Name</label><input style={S.input} value={ext.vendor_name} onChange={e=>setF("vendor_name",e.target.value)}/></div>
+            <div style={S.fg}><label style={S.label}>Invoice No</label><input style={S.input} value={ext.invoice_no} onChange={e=>setF("invoice_no",e.target.value)}/></div>
+          </div>
+          {ext.vendor_gstin&&<div style={S.fg}><label style={S.label}>Vendor GSTIN</label><input style={S.input} value={ext.vendor_gstin} onChange={e=>setF("vendor_gstin",e.target.value)}/></div>}
+          <div style={S.fg}><label style={S.label}>Description</label><input style={S.input} value={ext.description} onChange={e=>setF("description",e.target.value)}/></div>
+
+          <div style={{...S.card,background:"#0c1d2e",padding:10,marginBottom:10}}>
+            <div style={{fontSize:11,color:"#58a6ff",fontWeight:600,marginBottom:8}}>Amounts</div>
+            <div style={S.col2}>
+              <div style={S.fg}><label style={S.label}>Taxable Amount</label><input type="number" style={S.input} value={ext.taxable_amount} onChange={e=>setF("taxable_amount",e.target.value)}/></div>
+              <div style={S.fg}><label style={S.label}>Total Amount</label><input type="number" style={S.input} value={ext.total_amount} onChange={e=>setF("total_amount",e.target.value)}/></div>
             </div>
-          ))}
+            <div style={S.col3}>
+              <div style={S.fg}><label style={S.label}>CGST</label><input type="number" style={S.input} value={ext.cgst_amount} onChange={e=>setF("cgst_amount",e.target.value)}/></div>
+              <div style={S.fg}><label style={S.label}>SGST</label><input type="number" style={S.input} value={ext.sgst_amount} onChange={e=>setF("sgst_amount",e.target.value)}/></div>
+              <div style={S.fg}><label style={S.label}>IGST</label><input type="number" style={S.input} value={ext.igst_amount} onChange={e=>setF("igst_amount",e.target.value)}/></div>
+            </div>
+            <div style={{fontSize:11,color:Math.abs(computedTotal()-(parseFloat(ext.total_amount)||0))>0.5?"#e3b341":"#3fb950"}}>
+              Taxable+Tax = {fmtM(computedTotal())} {Math.abs(computedTotal()-(parseFloat(ext.total_amount)||0))>0.5?"⚠ doesn't match Total":"✅ matches Total"}
+            </div>
+          </div>
+
+          <div style={S.fg}><label style={S.label}>{ext.type==="sales"?"Customer Ledger":"Supplier Ledger"} (party)</label>
+            <select style={S.select} value={ext.party_ledger_id} onChange={e=>setF("party_ledger_id",e.target.value)}>
+              <option value="">— Suspense Account (fix later) —</option>
+              {partyOptions.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </div>
+          <div style={S.fg}><label style={S.label}>{ext.type==="sales"?"Sales/Income Ledger":"Expense/Purchase Ledger"}</label>
+            <select style={S.select} value={ext.expense_ledger} onChange={e=>setF("expense_ledger",e.target.value)}>
+              {expenseOptions.map(l=><option key={l.id} value={l.name}>{l.name}</option>)}
+            </select>
+          </div>
+
           <button onClick={post} disabled={saving} style={{...S.btnG,width:"100%",marginTop:8}}>{saving?"Posting...":"✅ Post as Voucher"}</button>
         </>)}
       </div>
@@ -1284,11 +1427,14 @@ export default function App(){
   const[view,setView]=useState("dashboard");
   const[toast,setToast]=useState(null);
   const[showCompanyPicker,setShowCompanyPicker]=useState(false);
+  const[sidebarOpen,setSidebarOpen]=useState(false);
+  const isMobile=useIsMobile();
 
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),4000);};
   const logout=()=>{localStorage.clear();setUser(null);setToken("");};
   const onAuth=(u,t)=>{setUser(u);setToken(t);};
   const selectCompany=c=>{setCompany(c);if(c)localStorage.setItem("tp_company",JSON.stringify(c));else localStorage.removeItem("tp_company");setShowCompanyPicker(false);setView("dashboard");};
+  const goView=k=>{setView(k);if(isMobile)setSidebarOpen(false);};
 
   // verify stored company still exists
   useEffect(()=>{
@@ -1306,33 +1452,40 @@ export default function App(){
 
   return(
     <div style={S.app}>
+      <GlobalStyles/>
       {/* TOP BAR */}
       <div style={S.topbar}>
-        <div style={{fontWeight:800,fontSize:15,color:C.text}}>🛡️ TaxPro</div>
-        <div style={{width:1,height:24,background:C.border}}/>
-        <div onClick={()=>setShowCompanyPicker(true)} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:8,padding:"5px 12px",borderRadius:7,background:company?"#0c1d2e":"#2d1b00",border:`1px solid ${company?"#1f4872":"#9e6a03"}`}}>
-          <span style={{fontSize:14}}>🏢</span>
-          <div>
-            <div style={{fontSize:12,fontWeight:700,color:company?"#58a6ff":"#e3b341"}}>{company?company.name:"No Company Selected"}</div>
-            {company&&<div style={{fontSize:9,color:C.muted}}>FY {company.fy_start?.substring(0,4)}-{company.fy_end?.substring(2,4)} · GSTIN: {company.gstin||"—"}</div>}
+        {isMobile&&<button onClick={()=>setSidebarOpen(p=>!p)} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:16,padding:"4px 9px",cursor:"pointer"}}>☰</button>}
+        <div style={{fontWeight:800,fontSize:15,color:C.text,flexShrink:0}}>🛡️{!isMobile&&" TaxPro"}</div>
+        {!isMobile&&<div style={{width:1,height:24,background:C.border}}/>}
+        <div onClick={()=>setShowCompanyPicker(true)} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:7,background:company?"#0c1d2e":"#2d1b00",border:`1px solid ${company?"#1f4872":"#9e6a03"}`,minWidth:0,overflow:"hidden",flex:isMobile?1:"none"}}>
+          <span style={{fontSize:14,flexShrink:0}}>🏢</span>
+          <div style={{minWidth:0,overflow:"hidden"}}>
+            <div style={{fontSize:12,fontWeight:700,color:company?"#58a6ff":"#e3b341",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{company?company.name:"No Company Selected"}</div>
+            {company&&!isMobile&&<div style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>FY {company.fy_start?.substring(0,4)}-{company.fy_end?.substring(2,4)} · GSTIN: {company.gstin||"—"}</div>}
           </div>
-          <span style={{fontSize:10,color:C.muted}}>▾ Change</span>
+          <span style={{fontSize:10,color:C.muted,flexShrink:0}}>▾</span>
         </div>
-        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:12,color:C.muted}}>{user.name}</span>
-          {badge("Live","green")}
-          <button onClick={logout} style={{...S.btnO,fontSize:11,padding:"4px 10px"}}>Logout</button>
+        <div style={{marginLeft:isMobile?0:"auto",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          {!isMobile&&<span style={{fontSize:12,color:C.muted}}>{user.name}</span>}
+          {!isMobile&&badge("Live","green")}
+          <button onClick={logout} style={{...S.btnO,fontSize:11,padding:"4px 10px"}}>{isMobile?"⏻":"Logout"}</button>
         </div>
       </div>
 
       <div style={S.body}>
         {/* SIDEBAR */}
-        <div style={S.sidebar}>
+        {isMobile&&sidebarOpen&&<div onClick={()=>setSidebarOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:149}}/>}
+        <div style={isMobile?{
+          ...S.sidebar,position:"fixed",top:50,bottom:0,left:0,zIndex:150,
+          transform:sidebarOpen?"translateX(0)":"translateX(-100%)",transition:"transform 0.2s ease",
+          boxShadow:sidebarOpen?"4px 0 24px rgba(0,0,0,0.5)":"none",
+        }:S.sidebar}>
           {GROUPS.map(g=>(
             <div key={g}>
               <div style={{fontSize:9,color:"#444C56",padding:"10px 14px 4px",letterSpacing:1.5,fontWeight:700}}>{g}</div>
               {NAV.filter(n=>n.group===g).map(n=>(
-                <button key={n.key} onClick={()=>setView(n.key)} style={{display:"flex",alignItems:"center",gap:9,width:"100%",padding:"7px 14px",border:"none",background:view===n.key?"rgba(31,111,235,0.12)":"transparent",borderLeft:view===n.key?"2px solid #1F6FEB":"2px solid transparent",color:view===n.key?"#58a6ff":C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:view===n.key?600:400,textAlign:"left"}}>
+                <button key={n.key} onClick={()=>goView(n.key)} style={{display:"flex",alignItems:"center",gap:9,width:"100%",padding:"9px 14px",border:"none",background:view===n.key?"rgba(31,111,235,0.12)":"transparent",borderLeft:view===n.key?"2px solid #1F6FEB":"2px solid transparent",color:view===n.key?"#58a6ff":C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:view===n.key?600:400,textAlign:"left"}}>
                   <span style={{fontSize:14}}>{n.icon}</span><span>{n.label}</span>
                 </button>
               ))}
@@ -1341,7 +1494,7 @@ export default function App(){
         </div>
 
         {/* MAIN */}
-        <div style={S.main}>
+        <div style={{...S.main,padding:isMobile?10:18}}>
           <div style={{fontSize:16,fontWeight:700,color:C.text,marginBottom:16}}>{TITLES[view]}</div>
           {needsCompany&&!company?(
             <CompanyCtx company={null} onGo={()=>setShowCompanyPicker(true)}/>
@@ -1373,7 +1526,7 @@ export default function App(){
       </div>
 
       {/* COMPANY PICKER MODAL */}
-      {showCompanyPicker&&(<Modal title="Select Company" onClose={()=>company&&setShowCompanyPicker(false)} wide>
+      {showCompanyPicker&&(<Modal title="Select Company" onClose={()=>setShowCompanyPicker(false)} wide>
         <CompanyManager token={token} toast={showToast} onSelect={selectCompany} current={company}/>
       </Modal>)}
 
