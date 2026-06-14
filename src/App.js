@@ -1235,7 +1235,7 @@ function AIInvoiceScanner({token,toast,company}){
           total_amount:String(data.total_amount||0),
           description:data.description||"",
           party_ledger_id:partyLedger?.id||"",
-          expense_ledger:data.suggested_ledger||"Purchase Account",
+          expense_ledger:["Purchase Account","Purchase"].includes(data.suggested_ledger)?(data.type==="sales"?"Sales":"Purchase"):(data.suggested_ledger||(data.type==="sales"?"Sales":"Purchase")),
         });
         toast("✅ Scanned! Review details below.","success");
       }else toast(d.message||"Scan failed","error");
@@ -1261,13 +1261,14 @@ function AIInvoiceScanner({token,toast,company}){
 
     const isPurchase=ext.type!=="sales";
     // Find expense/purchase ledger
-    const expLedger=findLedger(ext.expense_ledger)||findLedger("Purchase Account")||findLedger("Suspense Account");
-    const cgstLedger=findLedger(isPurchase?"Input CGST":"Output CGST");
-    const sgstLedger=findLedger(isPurchase?"Input SGST":"Output SGST");
-    const igstLedger=findLedger(isPurchase?"Input IGST":"Output IGST");
-    const partyLedger=ext.party_ledger_id?ledgers.find(l=>l.id===ext.party_ledger_id):(findLedger("Suspense Account"));
+    const expLedger=findLedger(ext.expense_ledger)||findLedger(isPurchase?"Purchase":"Sales")||findLedgerLike(/suspense/i);
+    const cgstLedger=findLedger(isPurchase?"CGST Input Credit":"CGST Payable");
+    const sgstLedger=findLedger(isPurchase?"SGST Input Credit":"SGST Payable");
+    const igstLedger=findLedger(isPurchase?"IGST Input Credit":"IGST Payable");
+    const partyLedger=ext.party_ledger_id?ledgers.find(l=>l.id===ext.party_ledger_id):findLedgerLike(/suspense/i);
 
-    if(!expLedger||!partyLedger)return toast("Required ledgers (Purchase/Suspense Account) not found in Chart of Accounts","error");
+    if(!expLedger||!partyLedger)return toast("Required ledgers (Purchase/Sales/Suspense Account) not found in Chart of Accounts. Please check Ledgers.","error");
+    if((cgst>0&&!cgstLedger)||(sgst>0&&!sgstLedger)||(igst>0&&!igstLedger))return toast("GST ledgers (CGST/SGST/IGST Input Credit or Payable) not found in Chart of Accounts. Please create them in Ledgers.","error");
 
     const narration=`${ext.vendor_name||"Unknown Vendor"} | Inv# ${ext.invoice_no||"-"} | ${ext.description||""}`.trim();
     const items=[];
@@ -1298,7 +1299,7 @@ function AIInvoiceScanner({token,toast,company}){
   };
 
   const partyOptions=ledgers.filter(l=>/debtor|creditor/i.test(l.group_name||""));
-  const expenseOptions=ledgers.filter(l=>l.nature==="Expense"||l.name==="Purchase Account"||l.name==="Suspense Account");
+  const expenseOptions=ledgers.filter(l=>l.nature==="Expense"||l.name==="Purchase"||l.name==="Sales"||/suspense/i.test(l.name));
 
   if(!cid)return null;
   return(<div>
