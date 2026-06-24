@@ -5003,7 +5003,7 @@ function GSTR10({token,toast,company}){
 
     <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
       <GSTDownloadBar disabled={!f.cancellation_date}
-        onJson={()=>downloadJSON({gstin:company.gstin,cancellation_date:f.cancellation_date,effective_cancellation_date:f.effective_cancellation_date,reason:f.reason_for_cancellation,table5_inputs,table5_semi_finished:t5_semi,table5_finished,table5_capital_goods:t5_cg,total_tax_payable:grandTotal()},`GSTR10_${company.gstin||"GSTIN"}.json`)}
+        onJson={()=>downloadJSON({gstin:company.gstin,cancellation_date:f.cancellation_date,effective_cancellation_date:f.effective_cancellation_date,reason:f.reason_for_cancellation,table5_inputs:t5_inputs,table5_semi_finished:t5_semi,table5_finished:t5_finished,table5_capital_goods:t5_cg,total_tax_payable:grandTotal()},`GSTR10_${company.gstin||"GSTIN"}.json`)}
         onPdf={()=>{
           const n=v=>Number(v||0).toLocaleString("en-IN",{minimumFractionDigits:2});
           const stockHTML=(title,rows)=>rows.length?`<h3>${title}</h3><table><tr><th>Description</th><th>Unit</th><th>Qty</th><th>Taxable (₹)</th><th>ITC Availed (₹)</th><th>Tax Payable (₹)</th></tr>${rows.map(r=>`<tr><td>${r.description||"—"}</td><td>${r.unit}</td><td>${r.qty}</td><td>${n(r.taxable_value)}</td><td>${n(r.itc_availed)}</td><td><b>${n(r.tax_payable)}</b></td></tr>`).join("")}</table>`:"";
@@ -5028,8 +5028,8 @@ function GSTR10({token,toast,company}){
 
 // ── Shared Download Button Bar ───────────────────────────────────────────────
 function GSTDownloadBar({onJson,onExcel,onPdf,onWord,returnType,period,disabled}){
-  const[open,setOpen]=React.useState(false);const ref=React.useRef();
-  React.useEffect(()=>{
+  const[open,setOpen]=useState(false);const ref=useRef();
+  useEffect(()=>{
     const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
     document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);
   },[]);
@@ -5053,7 +5053,7 @@ function GSTDownloadBar({onJson,onExcel,onPdf,onWord,returnType,period,disabled}
 }
 
 function DropItem({icon,label,sub,onClick}){
-  const[hov,setHov]=React.useState(false);
+  const[hov,setHov]=useState(false);
   return(
     <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{padding:"9px 14px",cursor:"pointer",background:hov?"#1c2333":"transparent",borderBottom:`1px solid ${C.border}`}}>
