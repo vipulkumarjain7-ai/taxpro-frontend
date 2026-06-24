@@ -4254,7 +4254,15 @@ function GSTR9C({token,toast,company}){
       </div>
     </div>
 
-    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
+      <GSTDownloadBar disabled={false}
+        onJson={()=>downloadJSON({gstin:company.gstin,fy,table5,reasons5,table9rows,reasons9,table12,reasons12,table14rows,certification},`GSTR9C_${company.gstin||"GSTIN"}_${fy}.json`)}
+        onPdf={()=>{
+          const n=v=>Number(v||0).toLocaleString("en-IN",{minimumFractionDigits:2});
+          const body=`<h3>Part II — Table 5: Turnover Reconciliation</h3><table><tr><th>Particulars</th><th>Amount (₹)</th></tr><tr><td>5A Turnover per Fin. Statements</td><td>${n(table5.turnover_audited)}</td></tr><tr><td>5Q Turnover as per GSTR-9</td><td>${n(af?.turnover_as_per_gstr9||0)}</td></tr></table><h3>Part B — Certification</h3><p>CA: ${certification.auditor_name||"—"} | MRN: ${certification.membership_no||"—"} | FRN: ${certification.frn||"—"} | Date: ${certification.date||"—"}</p><p>Recommendation: ${certification.recommendation||"NIL"}</p>`;
+          openPrintWindow(buildPrintHTML("FORM GSTR-9C — Reconciliation Statement",company.gstin||"",company.name,fy,body),`GSTR9C_${company.gstin}.pdf`);
+        }}
+      />
       <button onClick={save} disabled={saving} style={S.btn}>{saving?"Saving...":"💾 Save Draft"}</button>
       {ret?.status!=="filed"&&<button onClick={markFiled} style={S.btnG}>Mark as Filed</button>}
     </div>
@@ -4993,8 +5001,17 @@ function GSTR10({token,toast,company}){
 
     {ret&&<div style={{...S.card,background:"#0d2818"}}><span style={{fontSize:12,color:"#3fb950"}}>Status: {ret.status==="filed"?`Filed — ARN: ${ret.arn}`:"Draft"}</span></div>}
 
-    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-      <button onClick={save} disabled={saving} style={S.btn}>{saving?"Saving...":"💾 Save Draft"}</button>
+    <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
+      <GSTDownloadBar disabled={!f.cancellation_date}
+        onJson={()=>downloadJSON({gstin:company.gstin,cancellation_date:f.cancellation_date,effective_cancellation_date:f.effective_cancellation_date,reason:f.reason_for_cancellation,table5_inputs,table5_semi_finished:t5_semi,table5_finished,table5_capital_goods:t5_cg,total_tax_payable:grandTotal()},`GSTR10_${company.gstin||"GSTIN"}.json`)}
+        onPdf={()=>{
+          const n=v=>Number(v||0).toLocaleString("en-IN",{minimumFractionDigits:2});
+          const stockHTML=(title,rows)=>rows.length?`<h3>${title}</h3><table><tr><th>Description</th><th>Unit</th><th>Qty</th><th>Taxable (₹)</th><th>ITC Availed (₹)</th><th>Tax Payable (₹)</th></tr>${rows.map(r=>`<tr><td>${r.description||"—"}</td><td>${r.unit}</td><td>${r.qty}</td><td>${n(r.taxable_value)}</td><td>${n(r.itc_availed)}</td><td><b>${n(r.tax_payable)}</b></td></tr>`).join("")}</table>`:"";
+          const body=`<p><b>Cancellation Date:</b> ${f.cancellation_date||"—"} | <b>Effective Date:</b> ${f.effective_cancellation_date||"—"}</p><p><b>Reason:</b> ${f.reason_for_cancellation||"—"}</p>${stockHTML("(a) Inputs",t5_inputs)}${stockHTML("(b) Semi-Finished",t5_semi)}${stockHTML("(c) Finished Goods",t5_finished)}${stockHTML("(d) Capital Goods",t5_cg)}<h3>Total Tax Payable</h3><table><tr><th>Amount (₹)</th></tr><tr><td><b>${n(grandTotal())}</b></td></tr></table>`;
+          openPrintWindow(buildPrintHTML("FORM GSTR-10 — Final Return",company.gstin||"",company.name,"Cancellation",body),`GSTR10_${company.gstin}.pdf`);
+        }}
+      />
+            <button onClick={save} disabled={saving} style={S.btn}>{saving?"Saving...":"💾 Save Draft"}</button>
       {ret?.status!=="filed"&&<button onClick={markFiled} style={S.btnG}>Mark as Filed</button>}
       <button onClick={()=>window.open("https://services.gst.gov.in/services/auth/fowelcome","_blank")} style={S.btnO}>🌐 File on GST Portal</button>
     </div>
