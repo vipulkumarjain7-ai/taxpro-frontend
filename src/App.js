@@ -1926,7 +1926,7 @@ const NAV=[
   {key:"gstr9c",   icon:"📑",label:"GSTR-9C (Reconciliation)",group:"GST SUITE"},
   {key:"gstr10",   icon:"🔚",label:"GSTR-10 (Final Return)",group:"GST SUITE"},
   {key:"legal-library",icon:"📚",label:"Legal Library",   group:"GST SUITE"},
-  {key:"notice-reply",icon:"🤖",label:"AI Notice Reply",  group:"GST SUITE"},
+  {key:"notice-reply",icon:"🤖",label:"AI Notice Reply",  group:"AI TOOLS"},
   {key:"reconcile",icon:"⇄",label:"GST Reconciliation",group:"GST SUITE"},
   {key:"gstr2a",   icon:"📥",label:"GSTR-2A Import",  group:"GST SUITE"},
   {key:"einvoice", icon:"🔖",label:"E-Invoice",       group:"GST SUITE"},
