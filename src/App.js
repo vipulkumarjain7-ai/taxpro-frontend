@@ -118,13 +118,17 @@ const CompanyCtx=({company,onGo,children})=>{
 
 // ── AUTH ────────────────────────────────────────────────────────────────────
 function AuthScreen({onAuth}){
-  const[tab,setTab]=useState("login");
+  const[tab,setTab]=useState("login");    // login | phone
+  const[loginMode,setLoginMode]=useState("password"); // password | otp_step2
+  const[phoneStep,setPhoneStep]=useState("input");    // input | otp
   const[f,setF]=useState({name:"",email:"",password:"",firm:"",phone:""});
+  const[phone,setPhone]=useState("");
+  const[otpCode,setOtpCode]=useState("");
+  const[otpToken,setOtpToken]=useState(null);
+  const[otpSentTo,setOtpSentTo]=useState("");
   const[loading,setLoading]=useState(false);
   const[warming,setWarming]=useState(true);
   const[err,setErr]=useState("");
-  const[otpStep,setOtpStep]=useState(null); // {otp_token, sent_to} when 2FA OTP required
-  const[otpCode,setOtpCode]=useState("");
   useEffect(()=>{fetch(`${API.replace("/api","")}/health`).then(()=>setWarming(false)).catch(()=>setWarming(false));},[]);
 
   const finishAuth=(d)=>{
@@ -133,83 +137,168 @@ function AuthScreen({onAuth}){
     onAuth(d.user,d.token);
   };
 
-  const go=async()=>{
+  // Email+Password login
+  const emailLogin=async()=>{
+    if(!f.email||!f.password)return setErr("Email and password required");
     setErr("");setLoading(true);
     try{
-      const d=await api(tab==="login"?"/auth/login":"/auth/register","POST",
-        tab==="login"?{email:f.email,password:f.password}:{name:f.name,email:f.email,password:f.password,firm_name:f.firm,phone:f.phone});
-      if(d.require_otp){
-        setOtpStep({otp_token:d.otp_token,sent_to:d.sent_to});
-      }else{
-        finishAuth(d);
-      }
+      const d=await api("/auth/login","POST",{email:f.email,password:f.password});
+      if(d.require_otp){setOtpToken(d.otp_token);setOtpSentTo(d.sent_to?.email||"");setLoginMode("otp_step2");}
+      else finishAuth(d);
     }catch(e){setErr(e.message);}
     setLoading(false);
   };
 
-  const verifyOtp=async()=>{
-    if(!otpCode||otpCode.length<6)return setErr("Enter the 6-digit OTP");
+  // Register
+  const register=async()=>{
+    if(!f.name||!f.email||!f.password||!f.firm||!f.phone)return setErr("All fields are mandatory");
+    if(f.phone.replace(/\D/g,"").length!==10)return setErr("Enter valid 10-digit mobile number");
     setErr("");setLoading(true);
     try{
-      const d=await api("/auth/verify-login-otp","POST",{otp_token:otpStep.otp_token,code:otpCode},null);
+      const d=await api("/auth/register","POST",{name:f.name,email:f.email,password:f.password,firm_name:f.firm,phone:f.phone.replace(/\D/g,"")});
       finishAuth(d);
     }catch(e){setErr(e.message);}
     setLoading(false);
   };
 
-  // ── OTP VERIFICATION SCREEN ──
-  if(otpStep){
-    return(
-      <div style={{minHeight:"100vh",background:"#0D1117",display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <div style={{width:"min(400px,92vw)"}}>
-          <div style={{textAlign:"center",marginBottom:24}}>
-            <div style={{fontSize:36,marginBottom:8}}>🔐</div>
-            <div style={{fontSize:18,fontWeight:800,color:C.text}}>Verify it's you</div>
-            <div style={{fontSize:12,color:C.muted,marginTop:6}}>
-              We sent a 6-digit code to{otpStep.sent_to?.email?` ${otpStep.sent_to.email}`:""}{otpStep.sent_to?.phone?` and ${otpStep.sent_to.phone}`:""}
-            </div>
-          </div>
-          <div style={S.card}>
-            <div style={S.fg}>
-              <label style={S.label}>Enter OTP</label>
-              <input style={{...S.input,fontSize:20,letterSpacing:6,textAlign:"center"}} maxLength={6} value={otpCode}
-                onChange={e=>setOtpCode(e.target.value.replace(/\D/g,""))} onKeyDown={e=>e.key==="Enter"&&verifyOtp()} placeholder="000000" autoFocus/>
-            </div>
-            {err&&<div style={{background:"#2d0e0e",border:"1px solid #6e1c1c",color:"#f85149",padding:"9px 12px",borderRadius:7,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-            <button onClick={verifyOtp} disabled={loading} style={{...S.btn,width:"100%",padding:11,opacity:loading?0.7:1}}>{loading?"Verifying...":"Verify & Continue →"}</button>
-            <button onClick={()=>{setOtpStep(null);setOtpCode("");setErr("");}} style={{...S.btnO,width:"100%",marginTop:8}}>← Back to login</button>
-            <div style={{fontSize:11,color:C.muted,textAlign:"center",marginTop:10}}>OTP valid for 10 minutes</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Email 2FA verify
+  const verifyEmailOtp=async()=>{
+    if(!otpCode||otpCode.length<6)return setErr("Enter 6-digit OTP");
+    setErr("");setLoading(true);
+    try{const d=await api("/auth/verify-login-otp","POST",{otp_token:otpToken,code:otpCode},null);finishAuth(d);}
+    catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+
+  // Phone OTP — step 1: send
+  const sendPhoneOtp=async()=>{
+    const cleaned=phone.replace(/\D/g,"").slice(-10);
+    if(cleaned.length!==10)return setErr("Enter valid 10-digit mobile number");
+    setErr("");setLoading(true);
+    try{
+      const d=await api("/auth/phone-otp-request","POST",{phone:cleaned},null);
+      setOtpToken(d.otp_token);setOtpSentTo(d.sent_to||"");setPhoneStep("otp");
+      setErr("");
+    }catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+
+  // Phone OTP — step 2: verify
+  const verifyPhoneOtp=async()=>{
+    if(!otpCode||otpCode.length<6)return setErr("Enter 6-digit OTP");
+    setErr("");setLoading(true);
+    try{const d=await api("/auth/phone-otp-verify","POST",{otp_token:otpToken,code:otpCode},null);finishAuth(d);}
+    catch(e){setErr(e.message);}
+    setLoading(false);
+  };
+
+  const Input=({type="text",placeholder,value,onChange,onEnter,maxLength})=>(
+    <input type={type} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)}
+      onKeyDown={e=>e.key==="Enter"&&onEnter&&onEnter()}
+      maxLength={maxLength}
+      style={{width:"100%",padding:"11px 14px",background:"#f8f9fa",border:"1.5px solid #d3d9e1",borderRadius:6,fontSize:14,color:"#1a2b4e",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
+  );
+
+  const Btn=({children,onClick,disabled,variant="primary"})=>(
+    <button onClick={onClick} disabled={disabled||warming||loading}
+      style={{width:"100%",padding:"12px",borderRadius:6,border:"none",cursor:disabled||warming||loading?"not-allowed":"pointer",fontSize:14,fontWeight:700,fontFamily:"inherit",
+        background:variant==="primary"?"#0B6623":variant==="secondary"?"#1a2b4e":"transparent",
+        color:variant==="secondary"||variant==="primary"?"#fff":"#0B6623",opacity:disabled||warming||loading?0.7:1}}>
+      {loading?"Please wait...":warming?"Connecting...":children}
+    </button>
+  );
+
+  const ErrBox=()=>err?<div style={{background:"#fff5f5",border:"1px solid #fc8181",color:"#c53030",padding:"9px 12px",borderRadius:6,fontSize:13,marginBottom:12}}>⚠ {err}</div>:null;
 
   return(
-    <div style={{minHeight:"100vh",background:"#0D1117",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{width:"min(400px,92vw)"}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:40,marginBottom:8}}>🛡️</div>
-          <div style={{fontSize:24,fontWeight:800,color:C.text}}>TaxPro GST</div>
-          <div style={{fontSize:12,color:C.muted,marginTop:4}}>Complete Accounting + GST Suite</div>
-        </div>
-        <div style={S.card}>
-          <div style={{display:"flex",gap:4,marginBottom:20,background:"#0D1117",borderRadius:8,padding:4}}>
-            {["login","register"].map(t=><button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:"8px",borderRadius:6,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600,background:tab===t?C.primary:"transparent",color:tab===t?"#fff":C.muted}}>{t==="login"?"Sign In":"Register"}</button>)}
+    <div style={{minHeight:"100vh",background:"#f0f2f5",display:"flex",flexDirection:"column"}}>
+      {/* GST Portal style header */}
+      <div style={{background:"#0B6623",padding:"0 24px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:14}}>
+          <div style={{width:42,height:42,background:"#fff",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:900,color:"#0B6623"}}>T</div>
+          <div>
+            <div style={{color:"#fff",fontWeight:800,fontSize:16,letterSpacing:0.3}}>TaxPro GST</div>
+            <div style={{color:"rgba(255,255,255,0.75)",fontSize:10}}>Complete GST & Accounting Suite</div>
           </div>
-          {tab==="register"&&<>
-            <div style={S.fg}><label style={S.label}>Your Name</label><input style={S.input} placeholder="CA Rajesh Sharma" value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))}/></div>
-            <div style={S.fg}><label style={S.label}>Firm Name</label><input style={S.input} placeholder="Sharma & Associates" value={f.firm} onChange={e=>setF(p=>({...p,firm:e.target.value}))}/></div>
-            <div style={S.fg}><label style={S.label}>Mobile Number (for OTP login later)</label><input style={S.input} placeholder="9876543210" value={f.phone} onChange={e=>setF(p=>({...p,phone:e.target.value.replace(/\D/g,"").slice(0,10)}))}/></div>
-          </>}
-          <div style={S.fg}><label style={S.label}>Email</label><input style={S.input} type="email" value={f.email} onChange={e=>setF(p=>({...p,email:e.target.value})) } onKeyDown={e=>e.key==="Enter"&&go()}/></div>
-          <div style={S.fg}><label style={S.label}>Password</label><input style={S.input} type="password" value={f.password} onChange={e=>setF(p=>({...p,password:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&go()}/></div>
-          {tab==="register"&&<div style={{fontSize:10,color:C.muted,marginTop:-8,marginBottom:14}}>Min 8 characters, at least 1 number</div>}
-          {err&&<div style={{background:"#2d0e0e",border:"1px solid #6e1c1c",color:"#f85149",padding:"9px 12px",borderRadius:7,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-          <button onClick={go} disabled={loading||warming} style={{...S.btn,width:"100%",padding:"11px",opacity:loading||warming?0.7:1}}>
-            {warming?"⏳ Connecting...":loading?"Please wait...":tab==="login"?"Sign In →":"Create Account"}
-          </button>
-          {warming&&<div style={{fontSize:11,color:C.amber,textAlign:"center",marginTop:8}}>Server waking up (~30s on free plan)</div>}
+        </div>
+        <div style={{color:"rgba(255,255,255,0.8)",fontSize:11}}>Powered by Anthropic AI</div>
+      </div>
+
+      {/* Blue banner like GST portal */}
+      <div style={{background:"#1a2b4e",padding:"10px 24px",display:"flex",alignItems:"center",gap:10}}>
+        <span style={{color:"rgba(255,255,255,0.6)",fontSize:11}}>🏠 Home</span>
+        <span style={{color:"rgba(255,255,255,0.3)"}}>›</span>
+        <span style={{color:"#fff",fontSize:11}}>Login</span>
+      </div>
+
+      {/* Login card */}
+      <div style={{flex:1,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"32px 16px"}}>
+        <div style={{width:"100%",maxWidth:460,background:"#fff",borderRadius:8,boxShadow:"0 4px 20px rgba(0,0,0,0.1)",overflow:"hidden"}}>
+          {/* Card header */}
+          <div style={{background:"#1a2b4e",padding:"16px 24px"}}>
+            <div style={{color:"#fff",fontWeight:700,fontSize:15}}>🔐 Login to TaxPro GST</div>
+            <div style={{color:"rgba(255,255,255,0.6)",fontSize:11,marginTop:2}}>Secure access for CA firms and tax professionals</div>
+          </div>
+
+          <div style={{padding:24}}>
+            {/* Tab selector */}
+            <div style={{display:"flex",background:"#f0f2f5",borderRadius:6,padding:4,marginBottom:20}}>
+              {[["login","📧 Email / Password"],["phone","📱 Mobile OTP"],["register","✏️ Register"]].map(([k,l])=>(
+                <button key={k} onClick={()=>{setTab(k);setErr("");setLoginMode("password");setPhoneStep("input");setOtpCode("");}}
+                  style={{flex:1,padding:"8px 4px",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:tab===k?700:400,fontFamily:"inherit",
+                    background:tab===k?"#fff":"transparent",color:tab===k?"#1a2b4e":"#64748b",boxShadow:tab===k?"0 1px 4px rgba(0,0,0,0.1)":"none"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            <ErrBox/>
+
+            {/* EMAIL + PASSWORD */}
+            {tab==="login"&&loginMode==="password"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Email ID *</div><Input placeholder="yourname@email.com" value={f.email} onChange={v=>setF(p=>({...p,email:v}))} onEnter={emailLogin}/></div>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Password *</div><Input type="password" placeholder="••••••••" value={f.password} onChange={v=>setF(p=>({...p,password:v}))} onEnter={emailLogin}/></div>
+              <Btn onClick={emailLogin}>Login →</Btn>
+            </div>)}
+
+            {/* EMAIL 2FA OTP */}
+            {tab==="login"&&loginMode==="otp_step2"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ OTP sent to {otpSentTo}</div>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Enter OTP *</div><Input placeholder="Enter 6-digit OTP" value={otpCode} onChange={setOtpCode} onEnter={verifyEmailOtp} maxLength={6}/></div>
+              <Btn onClick={verifyEmailOtp}>Verify OTP →</Btn>
+              <button onClick={()=>{setLoginMode("password");setOtpCode("");setErr("");}} style={{background:"none",border:"none",color:"#1a2b4e",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>← Back to login</button>
+            </div>)}
+
+            {/* PHONE OTP — Step 1 */}
+            {tab==="phone"&&phoneStep==="input"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Registered Mobile Number *</div><Input placeholder="10-digit mobile number" value={phone} onChange={v=>setPhone(v.replace(/\D/g,"").slice(0,10))} onEnter={sendPhoneOtp} maxLength={10}/><div style={{fontSize:11,color:"#64748b",marginTop:4}}>OTP will be sent to the email registered with this number</div></div>
+              <Btn onClick={sendPhoneOtp}>Send OTP →</Btn>
+            </div>)}
+
+            {/* PHONE OTP — Step 2 */}
+            {tab==="phone"&&phoneStep==="otp"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ OTP sent to email: {otpSentTo}</div>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Enter OTP *</div><Input placeholder="Enter 6-digit OTP" value={otpCode} onChange={setOtpCode} onEnter={verifyPhoneOtp} maxLength={6}/></div>
+              <Btn onClick={verifyPhoneOtp}>Verify & Login →</Btn>
+              <button onClick={()=>{setPhoneStep("input");setOtpCode("");setErr("");}} style={{background:"none",border:"none",color:"#1a2b4e",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>← Change number</button>
+            </div>)}
+
+            {/* REGISTER */}
+            {tab==="register"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Full Name *</div><Input placeholder="CA Rajesh Sharma" value={f.name} onChange={v=>setF(p=>({...p,name:v}))}/></div>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Firm Name *</div><Input placeholder="Sharma & Associates" value={f.firm} onChange={v=>setF(p=>({...p,firm:v}))}/></div>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Email ID *</div><Input type="email" placeholder="yourname@email.com" value={f.email} onChange={v=>setF(p=>({...p,email:v}))}/></div>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Mobile Number * (for OTP login)</div><Input placeholder="10-digit mobile number" value={f.phone} onChange={v=>setF(p=>({...p,phone:v.replace(/\D/g,"").slice(0,10)}))} maxLength={10}/></div>
+              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Password * (min 8 chars, 1 number)</div><Input type="password" placeholder="••••••••" value={f.password} onChange={v=>setF(p=>({...p,password:v}))}/></div>
+              <Btn onClick={register}>Create Account →</Btn>
+            </div>)}
+
+            {warming&&<div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:8}}>⏳ Server waking up (~30s)...</div>}
+          </div>
+
+          <div style={{background:"#f8f9fa",padding:"10px 24px",borderTop:"1px solid #e2e8f0",fontSize:10,color:"#94a3b8",textAlign:"center"}}>
+            Data protected by AES-256 encryption · Session-based JWT auth · Rate-limited access
+          </div>
         </div>
       </div>
     </div>
@@ -1964,7 +2053,8 @@ export default function App(){
   const[view,setView]=useState("dashboard");
   const[toast,setToast]=useState(null);
   const[showCompanyPicker,setShowCompanyPicker]=useState(false);
-  const[sidebarOpen,setSidebarOpen]=useState(false);
+  const[mobileMenuOpen,setMobileMenuOpen]=useState(false);
+  const[activeGroup,setActiveGroup]=useState(null);
   const[isAdmin,setIsAdmin]=useState(false);
   const isMobile=useIsMobile();
 
@@ -1972,9 +2062,8 @@ export default function App(){
   const logout=()=>{api("/auth/logout","POST",null,token).catch(()=>{});localStorage.clear();setUser(null);setToken("");};
   const onAuth=(u,t)=>{setUser(u);setToken(t);};
   const selectCompany=c=>{setCompany(c);if(c)localStorage.setItem("tp_company",JSON.stringify(c));else localStorage.removeItem("tp_company");setShowCompanyPicker(false);setView("dashboard");};
-  const goView=k=>{setView(k);if(isMobile)setSidebarOpen(false);};
+  const goView=k=>{setView(k);setMobileMenuOpen(false);setActiveGroup(null);};
 
-  // verify stored company still exists
   useEffect(()=>{
     if(company&&token){
       api("/accounting/companies","GET",null,token).then(d=>{
@@ -1983,86 +2072,127 @@ export default function App(){
     }
   },[token]);
 
-  // check admin status once logged in
   useEffect(()=>{
     if(token)api("/admin/me","GET",null,token).then(d=>setIsAdmin(!!d.is_admin)).catch(()=>{});
   },[token]);
 
-  // heartbeat — lets Admin Panel show accurate "last active" status
   useEffect(()=>{
     if(!token)return;
     const ping=()=>api("/auth/heartbeat","POST",null,token).catch(()=>{});
-    ping();
-    const id=setInterval(ping,5*60*1000); // every 5 min
-    return()=>clearInterval(id);
+    ping();const id=setInterval(ping,5*60*1000);return()=>clearInterval(id);
   },[token]);
 
   if(!user||!token)return<AuthScreen onAuth={onAuth}/>;
 
-  const GROUPS=["MAIN","MASTERS","TRANSACTIONS","REPORTS","GST SUITE","AI TOOLS","INCOME TAX","PRACTICE","SETTINGS","ADMIN"];
-  const needsCompany=!["dashboard","settings","backup","security","admin","legal-library"].includes(view);
+  // Only include ADMIN group for actual admins
+  const GROUPS=["MAIN","MASTERS","TRANSACTIONS","REPORTS","GST SUITE","AI TOOLS","INCOME TAX","PRACTICE","SETTINGS",...(isAdmin?["ADMIN"]:[])];
+  const needsCompany=!["dashboard","settings","backup","security","admin","legal-library","it-clients","it-returns","advance-tax","tds","compliance","documents","26as","form16","challan280","tax-planning","it-portal"].includes(view);
+
+  // Groups with their nav items
+  const groupedNav=GROUPS.map(g=>({group:g,items:NAV.filter(n=>n.group===g)})).filter(g=>g.items.length>0);
 
   return(
-    <div style={S.app}>
+    <div style={{minHeight:"100vh",background:"#f0f2f5",display:"flex",flexDirection:"column"}}>
       <GlobalStyles/>
-      {/* TOP BAR */}
-      <div style={S.topbar}>
-        {isMobile&&<button onClick={()=>setSidebarOpen(p=>!p)} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,color:C.text,fontSize:16,padding:"4px 9px",cursor:"pointer"}}>☰</button>}
-        <div style={{fontWeight:800,fontSize:15,color:C.text,flexShrink:0}}>🛡️{!isMobile&&" TaxPro"}</div>
-        {!isMobile&&<div style={{width:1,height:24,background:C.border}}/>}
-        <div onClick={()=>setShowCompanyPicker(true)} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:7,background:company?"#0c1d2e":"#2d1b00",border:`1px solid ${company?"#1f4872":"#9e6a03"}`,minWidth:0,overflow:"hidden",flex:isMobile?1:"none"}}>
-          <span style={{fontSize:14,flexShrink:0}}>🏢</span>
-          <div style={{minWidth:0,overflow:"hidden"}}>
-            <div style={{fontSize:12,fontWeight:700,color:company?"#58a6ff":"#e3b341",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{company?company.name:"No Company Selected"}</div>
-            {company&&!isMobile&&<div style={{fontSize:9,color:C.muted,whiteSpace:"nowrap"}}>FY {company.fy_start?.substring(0,4)}-{company.fy_end?.substring(2,4)} · GSTIN: {company.gstin||"—"}</div>}
+
+      {/* ── TOP HEADER (GST portal style) ── */}
+      <div style={{background:"#0B6623",padding:"0 16px",height:54,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:38,height:38,background:"#fff",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:18,color:"#0B6623",flexShrink:0}}>T</div>
+          <div>
+            <div style={{color:"#fff",fontWeight:800,fontSize:15}}>TaxPro GST</div>
+            <div style={{color:"rgba(255,255,255,0.7)",fontSize:9}}>Complete GST & Accounting Suite</div>
           </div>
-          <span style={{fontSize:10,color:C.muted,flexShrink:0}}>▾</span>
         </div>
-        <div style={{marginLeft:isMobile?0:"auto",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          {!isMobile&&<span style={{fontSize:12,color:C.muted}}>{user.name}</span>}
-          {!isMobile&&badge("Live","green")}
-          <button onClick={logout} style={{...S.btnO,fontSize:11,padding:"4px 10px"}}>{isMobile?"⏻":"Logout"}</button>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div onClick={()=>setShowCompanyPicker(true)} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:6,padding:"5px 10px",borderRadius:5,background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.3)"}}>
+            <span style={{fontSize:13}}>🏢</span>
+            <span style={{fontSize:11,color:"#fff",fontWeight:600,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{company?company.name:"Select Company"}</span>
+            <span style={{fontSize:10,color:"rgba(255,255,255,0.7)"}}>▾</span>
+          </div>
+          {!isMobile&&<span style={{fontSize:11,color:"rgba(255,255,255,0.8)"}}>{user.name}</span>}
+          <button onClick={logout} style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:5,color:"#fff",fontSize:11,padding:"5px 12px",cursor:"pointer",fontFamily:"inherit"}}>Logout</button>
+          {isMobile&&<button onClick={()=>setMobileMenuOpen(p=>!p)} style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:5,color:"#fff",fontSize:16,padding:"4px 10px",cursor:"pointer"}}>☰</button>}
         </div>
       </div>
 
-      <div style={S.body}>
-        {/* SIDEBAR */}
-        {isMobile&&sidebarOpen&&<div onClick={()=>setSidebarOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:149}}/>}
-        <div style={isMobile?{
-          ...S.sidebar,position:"fixed",top:50,bottom:0,left:0,zIndex:150,
-          transform:sidebarOpen?"translateX(0)":"translateX(-100%)",transition:"transform 0.2s ease",
-          boxShadow:sidebarOpen?"4px 0 24px rgba(0,0,0,0.5)":"none",
-        }:S.sidebar}>
-          {GROUPS.map(g=>(
-            <div key={g}>
-              <div style={{fontSize:9,color:"#444C56",padding:"10px 14px 4px",letterSpacing:1.5,fontWeight:700}}>{g}</div>
-              {NAV.filter(n=>n.group===g).map(n=>(
-                <button key={n.key} onClick={()=>goView(n.key)} style={{display:"flex",alignItems:"center",gap:9,width:"100%",padding:"9px 14px",border:"none",background:view===n.key?"rgba(31,111,235,0.12)":"transparent",borderLeft:view===n.key?"2px solid #1F6FEB":"2px solid transparent",color:view===n.key?"#58a6ff":C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:view===n.key?600:400,textAlign:"left"}}>
-                  <span style={{fontSize:14}}>{n.icon}</span><span>{n.label}</span>
+      {/* ── NAV BAR (horizontal, GST portal style) ── */}
+      {!isMobile&&(
+        <div style={{background:"#1a2b4e",borderBottom:"2px solid #0B6623",flexShrink:0,overflowX:"auto",whiteSpace:"nowrap"}}>
+          <div style={{display:"inline-flex",height:42,alignItems:"stretch"}}>
+            {groupedNav.map(({group,items})=>(
+              <div key={group} style={{position:"relative"}}
+                onMouseEnter={()=>setActiveGroup(group)}
+                onMouseLeave={()=>setActiveGroup(null)}>
+                <button style={{height:42,padding:"0 14px",border:"none",background:activeGroup===group?"#0B6623":"transparent",color:activeGroup===group?"#fff":"rgba(255,255,255,0.8)",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:5,whiteSpace:"nowrap"}}>
+                  {items[0]?.icon} {group} <span style={{fontSize:9}}>▾</span>
                 </button>
-              ))}
-            </div>
-          ))}
+                {activeGroup===group&&(
+                  <div style={{position:"absolute",top:42,left:0,background:"#fff",boxShadow:"0 4px 16px rgba(0,0,0,0.15)",borderRadius:"0 0 6px 6px",minWidth:200,zIndex:200,borderTop:"2px solid #0B6623"}}>
+                    {items.map(n=>(
+                      <button key={n.key} onClick={()=>goView(n.key)}
+                        style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"9px 16px",border:"none",background:view===n.key?"#f0fdf4":"transparent",color:view===n.key?"#0B6623":"#1a2b4e",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:view===n.key?700:400,textAlign:"left",borderLeft:view===n.key?"3px solid #0B6623":"3px solid transparent"}}>
+                        <span>{n.icon}</span><span>{n.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* MAIN */}
-        <div style={{...S.main,padding:isMobile?10:18}}>
-          <div style={{fontSize:16,fontWeight:700,color:C.text,marginBottom:16}}>{TITLES[view]}</div>
-          {needsCompany&&!company?(
-            <CompanyCtx company={null} onGo={()=>setShowCompanyPicker(true)}/>
-          ):(<>
-            {view==="dashboard"  &&<Dashboard token={token} company={company} setView={setView}/>}
-            {view==="ledgers"    &&<LedgerManager token={token} toast={showToast} company={company}/>}
-            {view==="groups"     &&<ChartOfAccounts token={token} toast={showToast} company={company}/>}
-            {view==="products"   &&<Products token={token} toast={showToast} company={company}/>}
-            {view==="vouchers"   &&<VoucherEntry token={token} toast={showToast} company={company}/>}
-            {view==="sales"      &&<InvoiceList token={token} toast={showToast} type="SALES" company={company} setView={setView}/>}
-            {view==="purchases"  &&<InvoiceList token={token} toast={showToast} type="PURCHASE" company={company} setView={setView}/>}
-            {view==="bank"       &&<BankStatement token={token} toast={showToast} company={company} setView={setView}/>}
-            {view==="bank-recon" &&<BankReconciliation token={token} toast={showToast} company={company}/>}
-            {view==="acc-reports"&&<AccountingReports token={token} toast={showToast} company={company}/>}
-            {view==="bank-book"  &&<BankBook token={token} toast={showToast} company={company}/>}
-            {view==="gstr1"      &&<GSTR1 token={token} toast={showToast} company={company}/>}
+      {/* ── MOBILE DRAWER ── */}
+      {isMobile&&mobileMenuOpen&&(
+        <>
+          <div onClick={()=>setMobileMenuOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:149}}/>
+          <div style={{position:"fixed",top:0,left:0,bottom:0,width:260,background:"#fff",zIndex:150,overflowY:"auto",boxShadow:"4px 0 20px rgba(0,0,0,0.2)"}}>
+            <div style={{background:"#0B6623",padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{color:"#fff",fontWeight:700}}>TaxPro GST</span>
+              <button onClick={()=>setMobileMenuOpen(false)} style={{background:"none",border:"none",color:"#fff",fontSize:20,cursor:"pointer"}}>✕</button>
+            </div>
+            {groupedNav.map(({group,items})=>(
+              <div key={group}>
+                <div style={{fontSize:10,color:"#94a3b8",padding:"10px 16px 4px",fontWeight:700,letterSpacing:1.2,background:"#f8f9fa"}}>{group}</div>
+                {items.map(n=>(
+                  <button key={n.key} onClick={()=>goView(n.key)}
+                    style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:view===n.key?"#f0fdf4":"transparent",color:view===n.key?"#0B6623":"#1a2b4e",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:view===n.key?700:400,borderLeft:view===n.key?"3px solid #0B6623":"3px solid transparent"}}>
+                    <span>{n.icon}</span><span>{n.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── BREADCRUMB BAR ── */}
+      <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"6px 16px",display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#64748b",flexShrink:0}}>
+        <span onClick={()=>goView("dashboard")} style={{cursor:"pointer",color:"#0B6623"}}>🏠 Home</span>
+        <span>›</span>
+        <span style={{color:"#1a2b4e",fontWeight:600}}>{TITLES[view]||view}</span>
+        {company&&<><span>›</span><span style={{color:"#0B6623"}}>{company.name}</span></>}
+      </div>
+
+      {/* ── MAIN CONTENT ── */}
+      <div style={{flex:1,padding:isMobile?10:18,overflowY:"auto"}}>
+        {needsCompany&&!company?(
+          <CompanyCtx company={null} onGo={()=>setShowCompanyPicker(true)}/>
+        ):(<>
+          {view==="dashboard"  &&<Dashboard token={token} company={company} setView={setView}/>}
+          {view==="ledgers"    &&<LedgerManager token={token} toast={showToast} company={company}/>}
+          {view==="groups"     &&<ChartOfAccounts token={token} toast={showToast} company={company}/>}
+          {view==="products"   &&<Products token={token} toast={showToast} company={company}/>}
+          {view==="vouchers"   &&<VoucherEntry token={token} toast={showToast} company={company}/>}
+          {view==="sales"      &&<InvoiceList token={token} toast={showToast} type="SALES" company={company} setView={setView}/>}
+          {view==="purchases"  &&<InvoiceList token={token} toast={showToast} type="PURCHASE" company={company} setView={setView}/>}
+          {view==="bank"       &&<BankStatement token={token} toast={showToast} company={company} setView={setView}/>}
+          {view==="bank-recon" &&<BankReconciliation token={token} toast={showToast} company={company}/>}
+          {view==="acc-reports"&&<AccountingReports token={token} toast={showToast} company={company}/>}
+          {view==="bank-book"  &&<BankBook token={token} toast={showToast} company={company}/>}
+          {view==="gstr1"      &&<GSTR1 token={token} toast={showToast} company={company}/>}
+          {view==="gstr3b"     &&<GSTR3B token={token} toast={showToast} company={company}/>}
           {view==="gstr2recon" &&<GSTR2Reconciliation token={token} toast={showToast} company={company}/>}
           {view==="gstr10"     &&<GSTR10 token={token} toast={showToast} company={company}/>}
           {view==="cmp08"      &&<CMP08 token={token} toast={showToast} company={company}/>}
@@ -2071,16 +2201,14 @@ export default function App(){
           {view==="gstr9c"     &&<GSTR9C token={token} toast={showToast} company={company}/>}
           {view==="legal-library"&&<LegalLibrary token={token} toast={showToast} isAdmin={isAdmin}/>}
           {view==="notice-reply" &&<NoticeReplyGenerator token={token} toast={showToast} company={company}/>}
-            {view==="gstr3b"     &&<GSTR3B token={token} toast={showToast} company={company}/>}
-            {view==="ai-invoice" &&<AIInvoiceScanner token={token} toast={showToast} company={company} setView={setView}/>}
-            {view==="ai-bill"    &&<AIBillGenerator token={token} toast={showToast} company={company} setView={setView}/>}
-            {view==="hsn"        &&<HSNManager token={token} toast={showToast} isAdmin={isAdmin}/>}
-            {view==="einvoice"   &&<EInvoice token={token} toast={showToast} company={company}/>}
-            {view==="ewaybill"   &&<EWayBill token={token} toast={showToast} company={company}/>}
-            {view==="reconcile"  &&<GSTReconciliation token={token} toast={showToast} company={company}/>}
-            {view==="gstr2a"     &&<GSTR2AImport token={token} toast={showToast} company={company}/>}
-            {view==="ai-assist"  &&<AIAssistant token={token} toast={showToast} company={company}/>}
-          </>)}
+          {view==="ai-invoice" &&<AIInvoiceScanner token={token} toast={showToast} company={company} setView={setView}/>}
+          {view==="ai-bill"    &&<AIBillGenerator token={token} toast={showToast} company={company} setView={setView}/>}
+          {view==="ai-assist"  &&<AIAssistant token={token} toast={showToast} company={company}/>}
+          {view==="hsn"        &&<HSNManager token={token} toast={showToast} isAdmin={isAdmin}/>}
+          {view==="einvoice"   &&<EInvoice token={token} toast={showToast} company={company}/>}
+          {view==="ewaybill"   &&<EWayBill token={token} toast={showToast} company={company}/>}
+          {view==="reconcile"  &&<GSTReconciliation token={token} toast={showToast} company={company}/>}
+          {view==="gstr2a"     &&<GSTR2AImport token={token} toast={showToast} company={company}/>}
           {view==="it-clients"  &&<ITClients token={token} toast={showToast} companyId={company?.id}/>}
           {view==="it-returns"  &&<ITReturns token={token} toast={showToast} companyId={company?.id}/>}
           {view==="26as"        &&<AIS26AS token={token} toast={showToast}/>}
@@ -2088,20 +2216,19 @@ export default function App(){
           {view==="challan280"  &&<Challan280 token={token} toast={showToast}/>}
           {view==="tax-planning"&&<TaxPlanning token={token} toast={showToast}/>}
           {view==="advance-tax" &&<AdvanceTaxCalc token={token} toast={showToast}/>}
-          {view==="security"    &&<SecuritySettings token={token} toast={showToast} user={user}/>}
-          {view==="admin"       &&(isAdmin?<AdminPanel token={token} toast={showToast}/>:<AdminClaim token={token} toast={showToast} onDone={()=>setIsAdmin(true)}/>)}
           {view==="tds"         &&<TDSModule token={token} toast={showToast} companyId={company?.id}/>}
           {view==="it-portal"   &&<ITPortal token={token} toast={showToast}/>}
           {view==="compliance"  &&<ComplianceCalendar token={token} toast={showToast} companyId={company?.id}/>}
           {view==="documents"   &&<DocumentManager token={token} toast={showToast} companyId={company?.id}/>}
           {view==="payroll"     &&<Payroll token={token} toast={showToast} companyId={company?.id}/>}
           {view==="employees"   &&<Employees token={token} toast={showToast} companyId={company?.id}/>}
-          {view==="settings"&&<Settings token={token} user={user} toast={showToast} onLogout={logout}/>}
-          {view==="backup"&&<BackupRestore token={token} toast={showToast} company={company}/>}
-        </div>
+          {view==="security"    &&<SecuritySettings token={token} toast={showToast} user={user}/>}
+          {view==="admin"       &&isAdmin&&<AdminPanel token={token} toast={showToast}/>}
+          {view==="settings"    &&<Settings token={token} user={user} toast={showToast} onLogout={logout}/>}
+          {view==="backup"      &&<BackupRestore token={token} toast={showToast} company={company}/>}
+        </>)}
       </div>
 
-      {/* COMPANY PICKER MODAL */}
       {showCompanyPicker&&(<Modal title="Select Company" onClose={()=>setShowCompanyPicker(false)} wide>
         <CompanyManager token={token} toast={showToast} onSelect={selectCompany} current={company}/>
       </Modal>)}
@@ -2110,7 +2237,6 @@ export default function App(){
     </div>
   );
 }
-
 // ── HSN MANAGER ──────────────────────────────────────────────────────────────
 function HSNManager({token,toast,isAdmin}){
   const[file,setFile]=useState(null);const[uploading,setUploading]=useState(false);const[codes,setCodes]=useState([]);const[search,setSearch]=useState("");const[loading,setLoading]=useState(true);
