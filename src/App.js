@@ -1926,7 +1926,7 @@ const NAV=[
   {key:"gstr9c",   icon:"📑",label:"GSTR-9C (Reconciliation)",group:"GST SUITE"},
   {key:"gstr10",   icon:"🔚",label:"GSTR-10 (Final Return)",group:"GST SUITE"},
   {key:"legal-library",icon:"📚",label:"Legal Library",   group:"GST SUITE"},
-  {key:"notice-reply",icon:"🤖",label:"AI Notice Reply",  group:"AI TOOLS"},
+  {key:"notice-reply",icon:"🤖",label:"AI Notice Reply",  group:"GST SUITE"},
   {key:"reconcile",icon:"⇄",label:"GST Reconciliation",group:"GST SUITE"},
   {key:"gstr2a",   icon:"📥",label:"GSTR-2A Import",  group:"GST SUITE"},
   {key:"einvoice", icon:"🔖",label:"E-Invoice",       group:"GST SUITE"},
@@ -1952,6 +1952,7 @@ const NAV=[
   {key:"security", icon:"🔐",label:"Security & Sessions",group:"SETTINGS"},
   {key:"settings", icon:"⚙",label:"Settings",         group:"SETTINGS"},
   {key:"admin",    icon:"👑",label:"Admin Panel",      group:"ADMIN"},
+  // Note: label shown dynamically in sidebar — non-admins see "Claim Admin"
 ];
 const TITLES=Object.fromEntries(NAV.map(n=>[n.key,n.label]));
 
@@ -1998,7 +1999,7 @@ export default function App(){
 
   if(!user||!token)return<AuthScreen onAuth={onAuth}/>;
 
-  const GROUPS=["MAIN","MASTERS","TRANSACTIONS","REPORTS","GST SUITE","AI TOOLS","INCOME TAX","PRACTICE","SETTINGS",...(isAdmin?["ADMIN"]:[])];
+  const GROUPS=["MAIN","MASTERS","TRANSACTIONS","REPORTS","GST SUITE","AI TOOLS","INCOME TAX","PRACTICE","SETTINGS","ADMIN"];
   const needsCompany=!["dashboard","settings","backup","security","admin","legal-library"].includes(view);
 
   return(
@@ -2035,7 +2036,7 @@ export default function App(){
           {GROUPS.map(g=>(
             <div key={g}>
               <div style={{fontSize:9,color:"#444C56",padding:"10px 14px 4px",letterSpacing:1.5,fontWeight:700}}>{g}</div>
-              {NAV.filter(n=>n.group===g&&(n.key!=="admin"||isAdmin)).map(n=>(
+              {NAV.filter(n=>n.group===g).map(n=>(
                 <button key={n.key} onClick={()=>goView(n.key)} style={{display:"flex",alignItems:"center",gap:9,width:"100%",padding:"9px 14px",border:"none",background:view===n.key?"rgba(31,111,235,0.12)":"transparent",borderLeft:view===n.key?"2px solid #1F6FEB":"2px solid transparent",color:view===n.key?"#58a6ff":C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:view===n.key?600:400,textAlign:"left"}}>
                   <span style={{fontSize:14}}>{n.icon}</span><span>{n.label}</span>
                 </button>
