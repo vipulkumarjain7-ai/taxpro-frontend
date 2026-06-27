@@ -117,11 +117,27 @@ const CompanyCtx=({company,onGo,children})=>{
 };
 
 // ── AUTH ────────────────────────────────────────────────────────────────────
+// ── SHARED: reusable styled input (defined OUTSIDE AuthScreen to prevent re-mount on each keystroke) ──
+const AuthInput=({type="text",placeholder,value,onChange,onEnter,maxLength,autoFocus})=>(
+  <input type={type} placeholder={placeholder} value={value}
+    onChange={e=>onChange(e.target.value)}
+    onKeyDown={e=>e.key==="Enter"&&onEnter&&onEnter()}
+    maxLength={maxLength} autoFocus={autoFocus}
+    style={{width:"100%",padding:"11px 14px",background:"#f8f9fa",border:"1.5px solid #d3d9e1",borderRadius:6,
+      fontSize:14,color:"#1a2b4e",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
+);
+
 function AuthScreen({onAuth}){
-  const[tab,setTab]=useState("login");    // login | phone
+  const[tab,setTab]=useState("login");
   const[loginMode,setLoginMode]=useState("password"); // password | otp_step2
   const[phoneStep,setPhoneStep]=useState("input");    // input | otp
-  const[f,setF]=useState({name:"",email:"",password:"",firm:"",phone:""});
+  const[email,setEmail]=useState("");
+  const[password,setPassword]=useState("");
+  const[regName,setRegName]=useState("");
+  const[regFirm,setRegFirm]=useState("");
+  const[regEmail,setRegEmail]=useState("");
+  const[regPhone,setRegPhone]=useState("");
+  const[regPass,setRegPass]=useState("");
   const[phone,setPhone]=useState("");
   const[otpCode,setOtpCode]=useState("");
   const[otpToken,setOtpToken]=useState(null);
@@ -129,6 +145,7 @@ function AuthScreen({onAuth}){
   const[loading,setLoading]=useState(false);
   const[warming,setWarming]=useState(true);
   const[err,setErr]=useState("");
+
   useEffect(()=>{fetch(`${API.replace("/api","")}/health`).then(()=>setWarming(false)).catch(()=>setWarming(false));},[]);
 
   const finishAuth=(d)=>{
@@ -137,31 +154,29 @@ function AuthScreen({onAuth}){
     onAuth(d.user,d.token);
   };
 
-  // Email+Password login
   const emailLogin=async()=>{
-    if(!f.email||!f.password)return setErr("Email and password required");
+    if(!email||!password)return setErr("Email and password required");
     setErr("");setLoading(true);
     try{
-      const d=await api("/auth/login","POST",{email:f.email,password:f.password});
+      const d=await api("/auth/login","POST",{email,password},null);
       if(d.require_otp){setOtpToken(d.otp_token);setOtpSentTo(d.sent_to?.email||"");setLoginMode("otp_step2");}
       else finishAuth(d);
     }catch(e){setErr(e.message);}
     setLoading(false);
   };
 
-  // Register
   const register=async()=>{
-    if(!f.name||!f.email||!f.password||!f.firm||!f.phone)return setErr("All fields are mandatory");
-    if(f.phone.replace(/\D/g,"").length!==10)return setErr("Enter valid 10-digit mobile number");
+    if(!regName||!regEmail||!regPass||!regFirm||!regPhone)return setErr("All fields are mandatory");
+    const cleanPhone=regPhone.replace(/\D/g,"");
+    if(cleanPhone.length!==10)return setErr("Enter valid 10-digit mobile number");
     setErr("");setLoading(true);
     try{
-      const d=await api("/auth/register","POST",{name:f.name,email:f.email,password:f.password,firm_name:f.firm,phone:f.phone.replace(/\D/g,"")});
+      const d=await api("/auth/register","POST",{name:regName,email:regEmail,password:regPass,firm_name:regFirm,phone:cleanPhone},null);
       finishAuth(d);
     }catch(e){setErr(e.message);}
     setLoading(false);
   };
 
-  // Email 2FA verify
   const verifyEmailOtp=async()=>{
     if(!otpCode||otpCode.length<6)return setErr("Enter 6-digit OTP");
     setErr("");setLoading(true);
@@ -170,20 +185,17 @@ function AuthScreen({onAuth}){
     setLoading(false);
   };
 
-  // Phone OTP — step 1: send
   const sendPhoneOtp=async()=>{
-    const cleaned=phone.replace(/\D/g,"").slice(-10);
+    const cleaned=phone.replace(/\D/g,"");
     if(cleaned.length!==10)return setErr("Enter valid 10-digit mobile number");
     setErr("");setLoading(true);
     try{
       const d=await api("/auth/phone-otp-request","POST",{phone:cleaned},null);
       setOtpToken(d.otp_token);setOtpSentTo(d.sent_to||"");setPhoneStep("otp");
-      setErr("");
     }catch(e){setErr(e.message);}
     setLoading(false);
   };
 
-  // Phone OTP — step 2: verify
   const verifyPhoneOtp=async()=>{
     if(!otpCode||otpCode.length<6)return setErr("Enter 6-digit OTP");
     setErr("");setLoading(true);
@@ -192,112 +204,86 @@ function AuthScreen({onAuth}){
     setLoading(false);
   };
 
-  const Input=({type="text",placeholder,value,onChange,onEnter,maxLength})=>(
-    <input type={type} placeholder={placeholder} value={value} onChange={e=>onChange(e.target.value)}
-      onKeyDown={e=>e.key==="Enter"&&onEnter&&onEnter()}
-      maxLength={maxLength}
-      style={{width:"100%",padding:"11px 14px",background:"#f8f9fa",border:"1.5px solid #d3d9e1",borderRadius:6,fontSize:14,color:"#1a2b4e",outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
-  );
+  const switchTab=(t)=>{setTab(t);setErr("");setLoginMode("password");setPhoneStep("input");setOtpCode("");};
 
-  const Btn=({children,onClick,disabled,variant="primary"})=>(
-    <button onClick={onClick} disabled={disabled||warming||loading}
-      style={{width:"100%",padding:"12px",borderRadius:6,border:"none",cursor:disabled||warming||loading?"not-allowed":"pointer",fontSize:14,fontWeight:700,fontFamily:"inherit",
-        background:variant==="primary"?"#0B6623":variant==="secondary"?"#1a2b4e":"transparent",
-        color:variant==="secondary"||variant==="primary"?"#fff":"#0B6623",opacity:disabled||warming||loading?0.7:1}}>
-      {loading?"Please wait...":warming?"Connecting...":children}
-    </button>
-  );
-
-  const ErrBox=()=>err?<div style={{background:"#fff5f5",border:"1px solid #fc8181",color:"#c53030",padding:"9px 12px",borderRadius:6,fontSize:13,marginBottom:12}}>⚠ {err}</div>:null;
+  const ErrBox=()=>err?(<div style={{background:"#fff5f5",border:"1px solid #fc8181",color:"#c53030",padding:"9px 12px",borderRadius:6,fontSize:13,marginBottom:12}}>⚠ {err}</div>):null;
+  const BtnPrimary=({onClick,children})=>(<button onClick={onClick} disabled={loading||warming}
+    style={{width:"100%",padding:"12px",borderRadius:6,border:"none",cursor:loading||warming?"not-allowed":"pointer",
+      fontSize:14,fontWeight:700,fontFamily:"inherit",background:"#0B6623",color:"#fff",opacity:loading||warming?0.7:1}}>
+    {loading?"Please wait…":warming?"Connecting…":children}
+  </button>);
+  const FieldLabel=({children})=>(<div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:5}}>{children}</div>);
+  const Field=({label,children})=>(<div style={{marginBottom:12}}><FieldLabel>{label}</FieldLabel>{children}</div>);
 
   return(
     <div style={{minHeight:"100vh",background:"#f0f2f5",display:"flex",flexDirection:"column"}}>
-      {/* GST Portal style header */}
       <div style={{background:"#0B6623",padding:"0 24px",height:60,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 2px 8px rgba(0,0,0,0.2)"}}>
         <div style={{display:"flex",alignItems:"center",gap:14}}>
           <div style={{width:42,height:42,background:"#fff",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:900,color:"#0B6623"}}>T</div>
           <div>
-            <div style={{color:"#fff",fontWeight:800,fontSize:16,letterSpacing:0.3}}>TaxPro GST</div>
-            <div style={{color:"rgba(255,255,255,0.75)",fontSize:10}}>Complete GST & Accounting Suite</div>
+            <div style={{color:"#fff",fontWeight:800,fontSize:16}}>TaxPro GST</div>
+            <div style={{color:"rgba(255,255,255,0.75)",fontSize:10}}>Complete GST &amp; Accounting Suite</div>
           </div>
         </div>
-        <div style={{color:"rgba(255,255,255,0.8)",fontSize:11}}>Powered by Anthropic AI</div>
       </div>
-
-      {/* Blue banner like GST portal */}
-      <div style={{background:"#1a2b4e",padding:"10px 24px",display:"flex",alignItems:"center",gap:10}}>
-        <span style={{color:"rgba(255,255,255,0.6)",fontSize:11}}>🏠 Home</span>
-        <span style={{color:"rgba(255,255,255,0.3)"}}>›</span>
+      <div style={{background:"#1a2b4e",padding:"8px 24px",display:"flex",alignItems:"center",gap:8}}>
+        <span style={{color:"rgba(255,255,255,0.6)",fontSize:11}}>🏠 Home</span><span style={{color:"rgba(255,255,255,0.3)"}}>›</span>
         <span style={{color:"#fff",fontSize:11}}>Login</span>
       </div>
-
-      {/* Login card */}
       <div style={{flex:1,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"32px 16px"}}>
         <div style={{width:"100%",maxWidth:460,background:"#fff",borderRadius:8,boxShadow:"0 4px 20px rgba(0,0,0,0.1)",overflow:"hidden"}}>
-          {/* Card header */}
           <div style={{background:"#1a2b4e",padding:"16px 24px"}}>
             <div style={{color:"#fff",fontWeight:700,fontSize:15}}>🔐 Login to TaxPro GST</div>
             <div style={{color:"rgba(255,255,255,0.6)",fontSize:11,marginTop:2}}>Secure access for CA firms and tax professionals</div>
           </div>
-
           <div style={{padding:24}}>
-            {/* Tab selector */}
             <div style={{display:"flex",background:"#f0f2f5",borderRadius:6,padding:4,marginBottom:20}}>
               {[["login","📧 Email / Password"],["phone","📱 Mobile OTP"],["register","✏️ Register"]].map(([k,l])=>(
-                <button key={k} onClick={()=>{setTab(k);setErr("");setLoginMode("password");setPhoneStep("input");setOtpCode("");}}
+                <button key={k} onClick={()=>switchTab(k)}
                   style={{flex:1,padding:"8px 4px",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:tab===k?700:400,fontFamily:"inherit",
-                    background:tab===k?"#fff":"transparent",color:tab===k?"#1a2b4e":"#64748b",boxShadow:tab===k?"0 1px 4px rgba(0,0,0,0.1)":"none"}}>
-                  {l}
-                </button>
+                    background:tab===k?"#fff":"transparent",color:tab===k?"#1a2b4e":"#64748b",
+                    boxShadow:tab===k?"0 1px 4px rgba(0,0,0,0.1)":"none"}}>{l}</button>
               ))}
             </div>
-
             <ErrBox/>
-
-            {/* EMAIL + PASSWORD */}
-            {tab==="login"&&loginMode==="password"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Email ID *</div><Input placeholder="yourname@email.com" value={f.email} onChange={v=>setF(p=>({...p,email:v}))} onEnter={emailLogin}/></div>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Password *</div><Input type="password" placeholder="••••••••" value={f.password} onChange={v=>setF(p=>({...p,password:v}))} onEnter={emailLogin}/></div>
-              <Btn onClick={emailLogin}>Login →</Btn>
-            </div>)}
-
-            {/* EMAIL 2FA OTP */}
-            {tab==="login"&&loginMode==="otp_step2"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ OTP sent to {otpSentTo}</div>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Enter OTP *</div><Input placeholder="Enter 6-digit OTP" value={otpCode} onChange={setOtpCode} onEnter={verifyEmailOtp} maxLength={6}/></div>
-              <Btn onClick={verifyEmailOtp}>Verify OTP →</Btn>
-              <button onClick={()=>{setLoginMode("password");setOtpCode("");setErr("");}} style={{background:"none",border:"none",color:"#1a2b4e",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>← Back to login</button>
-            </div>)}
-
-            {/* PHONE OTP — Step 1 */}
-            {tab==="phone"&&phoneStep==="input"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Registered Mobile Number *</div><Input placeholder="10-digit mobile number" value={phone} onChange={v=>setPhone(v.replace(/\D/g,"").slice(0,10))} onEnter={sendPhoneOtp} maxLength={10}/><div style={{fontSize:11,color:"#64748b",marginTop:4}}>OTP will be sent to the email registered with this number</div></div>
-              <Btn onClick={sendPhoneOtp}>Send OTP →</Btn>
-            </div>)}
-
-            {/* PHONE OTP — Step 2 */}
-            {tab==="phone"&&phoneStep==="otp"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#166534"}}>✅ OTP sent to email: {otpSentTo}</div>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Enter OTP *</div><Input placeholder="Enter 6-digit OTP" value={otpCode} onChange={setOtpCode} onEnter={verifyPhoneOtp} maxLength={6}/></div>
-              <Btn onClick={verifyPhoneOtp}>Verify & Login →</Btn>
-              <button onClick={()=>{setPhoneStep("input");setOtpCode("");setErr("");}} style={{background:"none",border:"none",color:"#1a2b4e",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>← Change number</button>
-            </div>)}
-
-            {/* REGISTER */}
-            {tab==="register"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Full Name *</div><Input placeholder="CA Rajesh Sharma" value={f.name} onChange={v=>setF(p=>({...p,name:v}))}/></div>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Firm Name *</div><Input placeholder="Sharma & Associates" value={f.firm} onChange={v=>setF(p=>({...p,firm:v}))}/></div>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Email ID *</div><Input type="email" placeholder="yourname@email.com" value={f.email} onChange={v=>setF(p=>({...p,email:v}))}/></div>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Mobile Number * (for OTP login)</div><Input placeholder="10-digit mobile number" value={f.phone} onChange={v=>setF(p=>({...p,phone:v.replace(/\D/g,"").slice(0,10)}))} maxLength={10}/></div>
-              <div><div style={{fontSize:12,color:"#1a2b4e",fontWeight:600,marginBottom:6}}>Password * (min 8 chars, 1 number)</div><Input type="password" placeholder="••••••••" value={f.password} onChange={v=>setF(p=>({...p,password:v}))}/></div>
-              <Btn onClick={register}>Create Account →</Btn>
-            </div>)}
-
-            {warming&&<div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:8}}>⏳ Server waking up (~30s)...</div>}
+            {tab==="login"&&loginMode==="password"&&(<>
+              <Field label="Email ID *"><AuthInput placeholder="yourname@email.com" value={email} onChange={setEmail} onEnter={emailLogin}/></Field>
+              <Field label="Password *"><AuthInput type="password" placeholder="••••••••" value={password} onChange={setPassword} onEnter={emailLogin}/></Field>
+              <BtnPrimary onClick={emailLogin}>Login →</BtnPrimary>
+            </>)}
+            {tab==="login"&&loginMode==="otp_step2"&&(<>
+              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#166534",marginBottom:12}}>✅ OTP sent to {otpSentTo}</div>
+              <Field label="Enter OTP *"><AuthInput placeholder="000000" value={otpCode} onChange={setOtpCode} onEnter={verifyEmailOtp} maxLength={6} autoFocus/></Field>
+              <BtnPrimary onClick={verifyEmailOtp}>Verify OTP →</BtnPrimary>
+              <button onClick={()=>{setLoginMode("password");setOtpCode("");setErr("");}} style={{background:"none",border:"none",color:"#1a2b4e",fontSize:12,cursor:"pointer",textDecoration:"underline",marginTop:8,display:"block"}}>← Back to login</button>
+            </>)}
+            {tab==="phone"&&phoneStep==="input"&&(<>
+              <Field label="Registered Mobile Number *">
+                <AuthInput placeholder="10-digit mobile number" value={phone} onChange={v=>{if(/^\d*$/.test(v)&&v.length<=10)setPhone(v);}} onEnter={sendPhoneOtp} maxLength={10}/>
+                <div style={{fontSize:11,color:"#64748b",marginTop:4}}>OTP will be sent to your registered email address</div>
+              </Field>
+              <BtnPrimary onClick={sendPhoneOtp}>Send OTP →</BtnPrimary>
+            </>)}
+            {tab==="phone"&&phoneStep==="otp"&&(<>
+              <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#166534",marginBottom:12}}>✅ OTP sent to {otpSentTo}</div>
+              <Field label="Enter OTP *"><AuthInput placeholder="000000" value={otpCode} onChange={setOtpCode} onEnter={verifyPhoneOtp} maxLength={6} autoFocus/></Field>
+              <BtnPrimary onClick={verifyPhoneOtp}>Verify &amp; Login →</BtnPrimary>
+              <button onClick={()=>{setPhoneStep("input");setOtpCode("");setErr("");}} style={{background:"none",border:"none",color:"#1a2b4e",fontSize:12,cursor:"pointer",textDecoration:"underline",marginTop:8,display:"block"}}>← Change number</button>
+            </>)}
+            {tab==="register"&&(<>
+              <Field label="Full Name *"><AuthInput placeholder="CA Rajesh Sharma" value={regName} onChange={setRegName}/></Field>
+              <Field label="Firm Name *"><AuthInput placeholder="Sharma &amp; Associates" value={regFirm} onChange={setRegFirm}/></Field>
+              <Field label="Email ID *"><AuthInput type="email" placeholder="yourname@email.com" value={regEmail} onChange={setRegEmail}/></Field>
+              <Field label="Mobile Number * (used for OTP login)">
+                <AuthInput placeholder="10-digit mobile number" value={regPhone} onChange={v=>{if(/^\d*$/.test(v)&&v.length<=10)setRegPhone(v);}} maxLength={10}/>
+              </Field>
+              <Field label="Password * (min 8 chars, at least 1 number)"><AuthInput type="password" placeholder="••••••••" value={regPass} onChange={setRegPass} onEnter={register}/></Field>
+              <BtnPrimary onClick={register}>Create Account →</BtnPrimary>
+            </>)}
+            {warming&&<div style={{fontSize:11,color:"#9ca3af",textAlign:"center",marginTop:10}}>⏳ Server waking up (~30s on free plan)…</div>}
           </div>
-
           <div style={{background:"#f8f9fa",padding:"10px 24px",borderTop:"1px solid #e2e8f0",fontSize:10,color:"#94a3b8",textAlign:"center"}}>
-            Data protected by AES-256 encryption · Session-based JWT auth · Rate-limited access
+            TaxPro GST · Designed for Indian CAs &amp; Tax Professionals
           </div>
         </div>
       </div>
