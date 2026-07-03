@@ -321,25 +321,14 @@ const NAV=[
   {key:"gstr10",     icon:"🔚",label:"GSTR-10 (Final Return)",group:"GST SUITE"},
   {key:"legal-library",icon:"📚",label:"Legal Library",   group:"GST SUITE"},
   {key:"notice-reply",icon:"🤖",label:"AI Notice Reply",  group:"GST SUITE"},
+  {key:"gstat-appeal",icon:"⚖️",label:"GSTAT / Appeal Drafting",group:"GST SUITE"},
   {key:"hsn",        icon:"🏷",label:"HSN/SAC Codes",    group:"GST SUITE"},
   {key:"einvoice",   icon:"⚡",label:"E-Invoice",         group:"GST SUITE"},
   {key:"ewaybill",   icon:"🚛",label:"E-Way Bill",        group:"GST SUITE"},
   {key:"ai-invoice", icon:"🤖",label:"AI Invoice Scanner",group:"AI TOOLS"},
   {key:"ai-bill",    icon:"🪄",label:"AI Bill Generator", group:"AI TOOLS"},
   {key:"ai-assist",  icon:"✦",label:"AI Assistant",      group:"AI TOOLS"},
-  {key:"it-clients",  icon:"👤",label:"IT Clients",       group:"INCOME TAX"},
-  {key:"it-returns",  icon:"📝",label:"ITR Computation",  group:"INCOME TAX"},
-  {key:"26as",        icon:"📊",label:"26AS/AIS Import",  group:"INCOME TAX"},
-  {key:"form16",      icon:"📄",label:"Form 16 / 16A",    group:"INCOME TAX"},
-  {key:"challan280",  icon:"🧾",label:"Challan 280",      group:"INCOME TAX"},
-  {key:"tax-planning",icon:"🤖",label:"AI Tax Planning",  group:"INCOME TAX"},
-  {key:"advance-tax", icon:"🧮",label:"Advance Tax",      group:"INCOME TAX"},
-  {key:"tds",         icon:"📌",label:"TDS Module",       group:"INCOME TAX"},
-  {key:"it-portal",   icon:"🔗",label:"IT Portal Links",  group:"INCOME TAX"},
-  {key:"compliance",  icon:"📅",label:"Compliance Calendar",group:"PRACTICE"},
-  {key:"documents",   icon:"📁",label:"Document Manager", group:"PRACTICE"},
-  {key:"payroll",     icon:"💰",label:"Payroll",          group:"PRACTICE"},
-  {key:"employees",   icon:"👥",label:"Employees",        group:"PRACTICE"},
+
   {key:"backup",     icon:"💾",label:"Backup",            group:"SETTINGS"},
   {key:"security",   icon:"🔐",label:"Security & Sessions",group:"SETTINGS"},
   {key:"settings",   icon:"⚙",label:"Settings",          group:"SETTINGS"},
@@ -351,12 +340,12 @@ const TITLES={dashboard:"Dashboard",ledgers:"Ledgers",groups:"Chart of Accounts"
   "bank-recon":"Bank Reconciliation","acc-reports":"Reports","bank-book":"Bank Book",
   gstr1:"GSTR-1",gstr3b:"GSTR-3B",gstr2recon:"GSTR-2A/2B Reconciliation",
   cmp08:"CMP-08",gstr4:"GSTR-4",gstr9:"GSTR-9",gstr9c:"GSTR-9C",gstr10:"GSTR-10",
-  "legal-library":"Legal Library","notice-reply":"AI Notice Reply",hsn:"HSN/SAC Codes",
+  "legal-library":"Legal Library","notice-reply":"AI Notice Reply","gstat-appeal":"GSTAT / Appeal Drafting",hsn:"HSN/SAC Codes",
   einvoice:"E-Invoice",ewaybill:"E-Way Bill",
   "ai-invoice":"AI Invoice Scanner","ai-bill":"AI Bill Generator","ai-assist":"AI Assistant",
-  "it-clients":"IT Clients","it-returns":"ITR Filing","26as":"26AS/AIS Import",
-  form16:"Form 16/16A",challan280:"Challan 280","tax-planning":"AI Tax Planning",
-  "advance-tax":"Advance Tax",tds:"TDS Module","it-portal":"IT Portal",
+  
+  form16:"Form 16/16A",challan280:"Challan 280",
+  tds:"TDS Module",
   compliance:"Compliance Calendar",documents:"Document Manager",payroll:"Payroll",employees:"Employees",
   backup:"Backup",security:"Security & Sessions",settings:"Settings",admin:"Admin Panel",
 };
@@ -461,7 +450,6 @@ function Dashboard({token,company,setView}){
     {icon:"✏️",title:"Transactions",desc:"Voucher Entry F4-F9, Sales, Purchase, Bank",keys:["vouchers"],color:"#238636"},
     {icon:"📊",title:"Reports",desc:"Trial Balance, P&L, Balance Sheet, Day Book",keys:["acc-reports"],color:"#9333ea"},
     {icon:"🧾",title:"GST Suite",desc:"GSTR-1, 3B, 2A/2B Recon, CMP-08, GSTR-4/9/9C/10, Legal Library",keys:["gstr3b"],color:"#0e9182"},
-    {icon:"📝",title:"Income Tax",desc:"ITR Filing, TDS, 26AS, Form 16, Challan 280, AI Tax Planning",keys:["it-clients"],color:"#2563eb"},
     {icon:"🤖",title:"AI Tools",desc:"Invoice Scanner, AI Bill Generator, AI Assistant",keys:["ai-invoice"],color:"#e11d48"},
     {icon:"🏦",title:"Banking",desc:"Bank Statement Import, Reconciliation",keys:["bank"],color:"#d97706"},
     {icon:"📅",title:"Compliance",desc:"Compliance Calendar, All Due Dates Auto-seeded",keys:["compliance"],color:"#7c3aed"},
@@ -1413,8 +1401,8 @@ export default function App(){
   if(!user||!token)return<AuthScreen onAuth={onAuth}/>;
 
   // Only include ADMIN group for actual admins
-  const GROUPS=["MAIN","MASTERS","TRANSACTIONS","REPORTS","GST SUITE","AI TOOLS","INCOME TAX","PRACTICE","SETTINGS",...(isAdmin?["ADMIN"]:[])];
-  const needsCompany=!["dashboard","settings","backup","security","admin","legal-library","it-clients","it-returns","advance-tax","tds","compliance","documents","26as","form16","challan280","tax-planning","it-portal"].includes(view);
+  const GROUPS=["MAIN","MASTERS","TRANSACTIONS","REPORTS","GST SUITE","AI TOOLS","SETTINGS",...(isAdmin?["ADMIN"]:[])];
+  const needsCompany=!["dashboard","settings","backup","security","admin","legal-library","gstat-appeal"].includes(view);
 
   // Groups with their nav items
   const groupedNav=GROUPS.map(g=>({group:g,items:NAV.filter(n=>n.group===g)})).filter(g=>g.items.length>0);
@@ -1529,6 +1517,7 @@ export default function App(){
           {view==="gstr9c"     &&<GSTR9C token={token} toast={showToast} company={company}/>}
           {view==="legal-library"&&<LegalLibrary token={token} toast={showToast} isAdmin={isAdmin}/>}
           {view==="notice-reply" &&<NoticeReplyGenerator token={token} toast={showToast} company={company}/>}
+          {view==="gstat-appeal" &&<GSTATAppeal token={token} toast={showToast} company={company}/>}
           {view==="ai-invoice" &&<AIInvoiceScanner token={token} toast={showToast} company={company} setView={setView}/>}
           {view==="ai-bill"    &&<AIBillGenerator token={token} toast={showToast} company={company} setView={setView}/>}
           {view==="ai-assist"  &&<AIAssistant token={token} toast={showToast} company={company}/>}
@@ -1537,19 +1526,6 @@ export default function App(){
           {view==="ewaybill"   &&<EWayBill token={token} toast={showToast} company={company}/>}
           {view==="reconcile"  &&<GSTReconciliation token={token} toast={showToast} company={company}/>}
           {view==="gstr2a"     &&<GSTR2AImport token={token} toast={showToast} company={company}/>}
-          {view==="it-clients"  &&<ITClients token={token} toast={showToast} companyId={company?.id}/>}
-          {view==="it-returns"  &&<ITReturns token={token} toast={showToast} companyId={company?.id}/>}
-          {view==="26as"        &&<AIS26AS token={token} toast={showToast}/>}
-          {view==="form16"      &&<Form16Generator token={token} toast={showToast}/>}
-          {view==="challan280"  &&<Challan280 token={token} toast={showToast}/>}
-          {view==="tax-planning"&&<TaxPlanning token={token} toast={showToast}/>}
-          {view==="advance-tax" &&<AdvanceTaxCalc token={token} toast={showToast}/>}
-          {view==="tds"         &&<TDSModule token={token} toast={showToast} companyId={company?.id}/>}
-          {view==="it-portal"   &&<ITPortal token={token} toast={showToast}/>}
-          {view==="compliance"  &&<ComplianceCalendar token={token} toast={showToast} companyId={company?.id}/>}
-          {view==="documents"   &&<DocumentManager token={token} toast={showToast} companyId={company?.id}/>}
-          {view==="payroll"     &&<Payroll token={token} toast={showToast} companyId={company?.id}/>}
-          {view==="employees"   &&<Employees token={token} toast={showToast} companyId={company?.id}/>}
           {view==="security"    &&<SecuritySettings token={token} toast={showToast} user={user}/>}
           {view==="admin"       &&isAdmin&&<AdminPanel token={token} toast={showToast}/>}
           {view==="settings"    &&<Settings token={token} user={user} toast={showToast} onLogout={logout}/>}
@@ -1897,901 +1873,6 @@ function BankBook({token,toast,company}){
 
 // ════════════════════════════════════════════════════════
 // SPECTRUM CLOUD MODULES
-// ════════════════════════════════════════════════════════
-
-// ── IT CLIENT MANAGER ────────────────────────────────────────────────────────
-function ITClients({token,toast,companyId}){
-  const[clients,setClients]=useState([]);const[loading,setLoading]=useState(true);const[modal,setModal]=useState(null);const[search,setSearch]=useState("");
-  const[f,setF]=useState({name:"",pan:"",aadhaar:"",dob:"",email:"",phone:"",address:"",client_type:"Individual",gstin:"",tan:"",din:""});
-  const TYPES=["Individual","HUF","Firm","Company","LLP","Trust","AOP","BOI"];
-  const load=useCallback(()=>{
-    setLoading(true);
-    api(`/it/clients${companyId?`?company_id=${companyId}`:""}${search?`${companyId?"&":"?"}search=${encodeURIComponent(search)}`:""}`, "GET",null,token)
-      .then(d=>{setClients(d.clients||[]);setLoading(false);}).catch(()=>setLoading(false));
-  },[token,companyId,search]);
-  useEffect(()=>{load();},[load]);
-  const save=async()=>{
-    if(!f.name)return toast("Name required","error");
-    try{
-      if(modal==="edit")await api(`/it/clients/${modal.id}`,"PUT",{...f,company_id:companyId||null},token);
-      else await api("/it/clients","POST",{...f,company_id:companyId||null},token);
-      toast("✅ Saved","success");setModal(null);load();
-    }catch(e){toast(e.message,"error");}
-  };
-  const del=async id=>{if(!window.confirm("Delete client?"))return;try{await api(`/it/clients/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
-  return(<div>
-    <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search by name or PAN..." style={{...S.input,width:240}}/>
-      <button onClick={()=>{setF({name:"",pan:"",aadhaar:"",dob:"",email:"",phone:"",address:"",client_type:"Individual",gstin:"",tan:"",din:""});setModal("new");}} style={{...S.btn,marginLeft:"auto"}}>+ New Client</button>
-    </div>
-    {loading?<Spinner/>:(
-      <div style={S.card}>
-        {clients.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No IT clients yet</div>:(
-          <table style={S.tbl}><thead><tr>{["Name","PAN","Type","Phone","Email","Returns","Action"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-          <tbody>{clients.map(c=>(
-            <tr key={c.id}>
-              <td style={{...S.td,fontWeight:600,color:C.text}}>{c.name}</td>
-              <td style={{...S.td,...S.mono}}>{c.pan||"—"}</td>
-              <td style={S.td}>{badge(c.client_type,"gray")}</td>
-              <td style={S.td}>{c.phone||"—"}</td>
-              <td style={S.td}>{c.email||"—"}</td>
-              <td style={{...S.td,textAlign:"center"}}>{c.return_count||0}</td>
-              <td style={S.tdR}><ActionMenu items={[{label:"✏️ Edit",onClick:()=>{setF({...c});setModal({id:c.id});}},,{label:"🗑 Delete",danger:true,onClick:()=>del(c.id)}]}/></td>
-            </tr>
-          ))}</tbody></table>
-        )}
-      </div>
-    )}
-    {modal&&<Modal title={typeof modal==="object"?"Edit Client":"New IT Client"} onClose={()=>setModal(null)} wide>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Full Name *</label><input style={S.input} value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))}/></div>
-        <div style={S.fg}><label style={S.label}>Client Type</label><select style={S.select} value={f.client_type} onChange={e=>setF(p=>({...p,client_type:e.target.value}))}>{TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
-      </div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>PAN</label><input style={S.input} value={f.pan} onChange={e=>setF(p=>({...p,pan:e.target.value.toUpperCase()}))} maxLength={10} placeholder="AAAAA0000A"/></div>
-        <div style={S.fg}><label style={S.label}>Aadhaar</label><input style={S.input} value={f.aadhaar} onChange={e=>setF(p=>({...p,aadhaar:e.target.value}))} maxLength={12}/></div>
-      </div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Date of Birth/Incorporation</label><input type="date" style={S.input} value={f.dob} onChange={e=>setF(p=>({...p,dob:e.target.value}))}/></div>
-        <div style={S.fg}><label style={S.label}>Phone</label><input style={S.input} value={f.phone} onChange={e=>setF(p=>({...p,phone:e.target.value}))}/></div>
-      </div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Email</label><input style={S.input} value={f.email} onChange={e=>setF(p=>({...p,email:e.target.value}))}/></div>
-        <div style={S.fg}><label style={S.label}>GSTIN</label><input style={S.input} value={f.gstin} onChange={e=>setF(p=>({...p,gstin:e.target.value.toUpperCase()}))}/></div>
-      </div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>TAN</label><input style={S.input} value={f.tan} onChange={e=>setF(p=>({...p,tan:e.target.value.toUpperCase()}))} maxLength={10}/></div>
-        <div style={S.fg}><label style={S.label}>DIN (for directors)</label><input style={S.input} value={f.din} onChange={e=>setF(p=>({...p,din:e.target.value}))}/></div>
-      </div>
-      <div style={S.fg}><label style={S.label}>Address</label><textarea style={{...S.input,minHeight:50}} value={f.address} onChange={e=>setF(p=>({...p,address:e.target.value}))}/></div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setModal(null)} style={S.btnO}>Cancel</button><button onClick={save} style={S.btn}>Save</button></div>
-    </Modal>}
-  </div>);
-}
-
-// ── ITR FILING ───────────────────────────────────────────────────────────────
-function ITReturns({token,toast,companyId}){
-  const[returns,setReturns]=useState([]);const[clients,setClients]=useState([]);const[loading,setLoading]=useState(true);const[modal,setModal]=useState(null);
-  const[f,setF]=useState({client_id:"",ay:"2026-27",itr_type:"ITR-1",salary_income:"0",hp_income:"0",business_income:"0",capital_gains:"0",other_income:"0",exempt_income:"0",deduction_80c:"0",deduction_80d:"0",other_deductions:"0",tds_deducted:"0",advance_tax:"0",notes:""});
-  const[computed,setComputed]=useState(null);
-  const AYS=["2026-27","2025-26","2024-25","2023-24","2022-23"];
-  const ITR_TYPES=["ITR-1","ITR-2","ITR-3","ITR-4","ITR-5","ITR-6","ITR-7"];
-  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
-
-  useEffect(()=>{
-    setLoading(true);
-    Promise.all([
-      api(`/it/returns${companyId?`?company_id=${companyId}`:""}`, "GET",null,token),
-      api(`/it/clients${companyId?`?company_id=${companyId}`:""}`, "GET",null,token),
-    ]).then(([r,c])=>{setReturns(r.returns||[]);setClients(c.clients||[]);setLoading(false);}).catch(()=>setLoading(false));
-  },[token,companyId]);
-
-  const compute=()=>{
-    const income=(parseFloat(f.salary_income)||0)+(parseFloat(f.hp_income)||0)+(parseFloat(f.business_income)||0)+(parseFloat(f.capital_gains)||0)+(parseFloat(f.other_income)||0);
-    const ded=(parseFloat(f.deduction_80c)||0)+(parseFloat(f.deduction_80d)||0)+(parseFloat(f.other_deductions)||0);
-    const net=Math.max(0,income-ded);
-    let tax=0;
-    if(net>1500000)tax=125000+(net-1500000)*0.3;
-    else if(net>1000000)tax=75000+(net-1000000)*0.2;
-    else if(net>500000)tax=12500+(net-500000)*0.2;
-    else if(net>250000)tax=(net-250000)*0.05;
-    const cess=Math.round(tax*0.04*100)/100;const totalTax=Math.round((tax+cess)*100)/100;
-    const tds=parseFloat(f.tds_deducted)||0;const adv=parseFloat(f.advance_tax)||0;
-    const bal=Math.max(0,totalTax-tds-adv);const ref=Math.max(0,tds+adv-totalTax);
-    setComputed({total_income:net,gross_tax:tax,cess,total_tax:totalTax,tds,advance_tax:adv,balance_due:bal,refund_due:ref});
-  };
-
-  const save=async()=>{
-    try{const d=await api("/it/returns","POST",{...f,company_id:companyId||null},token);setComputed(d.computed);toast("✅ ITR saved","success");setModal(null);setReturns(p=>[...p]);window.location.reload();}
-    catch(e){toast(e.message,"error");}
-  };
-  const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/it/returns/${id}`,"DELETE",null,token);toast("Deleted","success");setReturns(p=>p.filter(r=>r.id!==id));}catch(e){toast(e.message,"error");}};
-  const updateStatus=async(id,status)=>{try{await api(`/it/returns/${id}`,"PUT",{status},token);setReturns(p=>p.map(r=>r.id===id?{...r,status}:r));}catch(e){toast(e.message,"error");}};
-
-  return(<div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:10,marginBottom:14}}>
-      {[{l:"Total Returns",v:returns.length,c:"#58a6ff"},{l:"Filed",v:returns.filter(r=>r.status==="filed").length,c:"#3fb950"},{l:"Draft",v:returns.filter(r=>r.status==="draft").length,c:"#e3b341"},{l:"Refund Due",v:fR(returns.reduce((a,r)=>a+parseFloat(r.refund_due||0),0)),c:"#bf91f3"}].map(k=>(
-        <div key={k.l} style={S.kpi}><div style={S.label}>{k.l}</div><div style={{fontWeight:700,color:k.c,fontSize:k.l.includes("₹")?12:18}}>{k.v}</div></div>
-      ))}
-    </div>
-    <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-      <select style={{...S.select,width:160}} onChange={e=>{}}>
-        {AYS.map(ay=><option key={ay}>{ay}</option>)}
-      </select>
-      <button onClick={()=>{setF({client_id:"",ay:"2026-27",itr_type:"ITR-1",salary_income:"0",hp_income:"0",business_income:"0",capital_gains:"0",other_income:"0",exempt_income:"0",deduction_80c:"0",deduction_80d:"0",other_deductions:"0",tds_deducted:"0",advance_tax:"0",notes:""});setComputed(null);setModal(true);}} style={{...S.btn,marginLeft:"auto"}}>+ New ITR</button>
-    </div>
-    {loading?<Spinner/>:(
-      <div style={S.card}>
-        {returns.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No ITR records yet</div>:(
-          <table style={S.tbl}><thead><tr>{["Client","PAN","AY","ITR Type","Total Income","Tax","TDS","Balance/Refund","Status",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-          <tbody>{returns.map(r=>(
-            <tr key={r.id}>
-              <td style={{...S.td,fontWeight:600}}>{r.client_name||"—"}</td>
-              <td style={{...S.td,...S.mono}}>{r.pan||"—"}</td>
-              <td style={S.td}>{r.ay}</td>
-              <td style={S.td}>{badge(r.itr_type,"blue")}</td>
-              <td style={S.td}>{fR(r.total_income)}</td>
-              <td style={S.td}>{fR(r.tax_liability)}</td>
-              <td style={S.td}>{fR(r.tds_deducted)}</td>
-              <td style={S.td}>{r.refund_due>0?<span style={{color:"#3fb950"}}>Refund: {fR(r.refund_due)}</span>:r.tax_liability-r.tds_deducted-r.advance_tax>0?<span style={{color:"#f85149"}}>Due: {fR(r.tax_liability-r.tds_deducted-r.advance_tax)}</span>:<span style={{color:"#3fb950"}}>Nil</span>}</td>
-              <td style={S.td}>{badge(r.status,r.status==="filed"?"green":r.status==="draft"?"amber":"gray")}</td>
-              <td style={S.tdR}><ActionMenu items={[{label:"✅ Mark Filed",onClick:()=>updateStatus(r.id,"filed")},{label:"🗑 Delete",danger:true,onClick:()=>del(r.id)}]}/></td>
-            </tr>
-          ))}</tbody></table>
-        )}
-      </div>
-    )}
-    {modal&&<Modal title="New ITR" onClose={()=>setModal(null)} wide>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Client</label><select style={S.select} value={f.client_id} onChange={e=>setF(p=>({...p,client_id:e.target.value}))}><option value="">— Select —</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name} ({c.pan||"No PAN"})</option>)}</select></div>
-        <div style={S.col2}>
-          <div style={S.fg}><label style={S.label}>AY</label><select style={S.select} value={f.ay} onChange={e=>setF(p=>({...p,ay:e.target.value}))}>{AYS.map(a=><option key={a}>{a}</option>)}</select></div>
-          <div style={S.fg}><label style={S.label}>ITR Type</label><select style={S.select} value={f.itr_type} onChange={e=>setF(p=>({...p,itr_type:e.target.value}))}>{ITR_TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
-        </div>
-      </div>
-      <div style={{...S.card,background:"#0c1922",marginBottom:10}}>
-        <div style={{fontWeight:600,color:"#58a6ff",marginBottom:8,fontSize:12}}>Income (₹)</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10}}>
-          {[["Salary/Pension","salary_income"],["House Property","hp_income"],["Business/Prof","business_income"],["Capital Gains","capital_gains"],["Other Sources","other_income"],["Exempt Income","exempt_income"]].map(([l,k])=>(
-            <div key={k} style={S.fg}><label style={S.label}>{l}</label><input type="number" style={S.input} value={f[k]} onChange={e=>setF(p=>({...p,[k]:e.target.value}))}/></div>
-          ))}
-        </div>
-      </div>
-      <div style={{...S.card,background:"#0c1922",marginBottom:10}}>
-        <div style={{fontWeight:600,color:"#3fb950",marginBottom:8,fontSize:12}}>Deductions (₹)</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10}}>
-          {[["80C (max 1.5L)","deduction_80c"],["80D Medical","deduction_80d"],["Other Ded.","other_deductions"],["TDS Deducted","tds_deducted"],["Advance Tax","advance_tax"]].map(([l,k])=>(
-            <div key={k} style={S.fg}><label style={S.label}>{l}</label><input type="number" style={S.input} value={f[k]} onChange={e=>setF(p=>({...p,[k]:e.target.value}))}/></div>
-          ))}
-        </div>
-      </div>
-      <button onClick={compute} style={{...S.btnO,width:"100%",marginBottom:10}}>🧮 Compute Tax</button>
-      {computed&&(<div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:10}}>
-        <div style={S.col2}>
-          {[["Total Income",computed.total_income],["Gross Tax",computed.gross_tax],["+ Cess (4%)",computed.cess],["Total Tax",computed.total_tax],["- TDS",computed.tds],["- Advance Tax",computed.advance_tax]].map(([l,v])=>(
-            <div key={l} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${C.border}`}}><span style={{color:C.muted}}>{l}</span><span style={{fontWeight:600}}>{fR(v)}</span></div>
-          ))}
-        </div>
-        <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,fontSize:14,marginTop:8,color:computed.refund_due>0?"#3fb950":"#f85149"}}>
-          <span>{computed.refund_due>0?"REFUND DUE":"BALANCE DUE"}</span>
-          <span>{fR(Math.max(computed.refund_due,computed.balance_due))}</span>
-        </div>
-      </div>)}
-      <div style={S.fg}><label style={S.label}>Notes</label><textarea style={{...S.input,minHeight:40}} value={f.notes} onChange={e=>setF(p=>({...p,notes:e.target.value}))}/></div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setModal(null)} style={S.btnO}>Cancel</button><button onClick={save} style={S.btn}>Save ITR</button></div>
-    </Modal>}
-  </div>);
-}
-
-// ── ADVANCE TAX CALCULATOR ────────────────────────────────────────────────────
-function AdvanceTaxCalc({token,toast}){
-  const[f,setF]=useState({estimated_income:"",tds_deducted:"0",fy:"2026-27"});const[result,setResult]=useState(null);const[loading,setLoading]=useState(false);
-  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
-  const calc=async()=>{
-    setLoading(true);
-    try{const d=await api("/it/advance-tax","POST",f,token);setResult(d);}catch(e){toast(e.message,"error");}
-    setLoading(false);
-  };
-  return(<div>
-    <div style={{...S.card,background:"#0c1d2e",marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#58a6ff",marginBottom:4}}>🧮 Advance Tax Calculator</div>
-      <div style={{fontSize:12,color:C.muted}}>Compute advance tax installments for the financial year based on estimated income and TDS already deducted.</div>
-    </div>
-    <div style={S.card}>
-      <div style={S.col3}>
-        <div style={S.fg}><label style={S.label}>Estimated Total Income (₹)</label><input type="number" style={S.input} value={f.estimated_income} onChange={e=>setF(p=>({...p,estimated_income:e.target.value}))} placeholder="1200000"/></div>
-        <div style={S.fg}><label style={S.label}>TDS Already Deducted (₹)</label><input type="number" style={S.input} value={f.tds_deducted} onChange={e=>setF(p=>({...p,tds_deducted:e.target.value}))}/></div>
-        <div style={S.fg}><label style={S.label}>Financial Year</label><select style={S.select} value={f.fy} onChange={e=>setF(p=>({...p,fy:e.target.value}))}>{["2026-27","2025-26"].map(y=><option key={y}>{y}</option>)}</select></div>
-      </div>
-      <button onClick={calc} disabled={!f.estimated_income||loading} style={{...S.btn,opacity:!f.estimated_income?0.5:1}}>{loading?"Calculating...":"🧮 Calculate"}</button>
-    </div>
-    {result&&(<>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:14}}>
-        {[{l:"Estimated Income",v:fR(result.estimated_income),c:"#58a6ff"},{l:"Total Tax + Cess",v:fR(result.gross_tax),c:"#f85149"},{l:"Less: TDS",v:fR(result.tds),c:"#3fb950"},{l:"Net Advance Tax",v:fR(result.net_advance_tax),c:"#e3b341"}].map(k=>(
-          <div key={k.l} style={S.kpi}><div style={S.label}>{k.l}</div><div style={{fontWeight:700,color:k.c,fontSize:13}}>{k.v}</div></div>
-        ))}
-      </div>
-      <div style={S.card}>
-        <div style={{fontWeight:600,marginBottom:10}}>Installment Schedule</div>
-        <table style={S.tbl}><thead><tr>{["Installment","Due Date","Cumulative %","Amount Payable"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-        <tbody>{result.installments.map((inst,i)=>(
-          <tr key={i}><td style={S.td}>{["1st","2nd","3rd","4th"][i]} Installment</td><td style={S.td}>{inst.date}</td><td style={S.td}>{inst.pct}%</td><td style={{...S.tdR,fontWeight:700,color:"#e3b341"}}>{fR(inst.amount)}</td></tr>
-        ))}</tbody></table>
-        <div style={{...S.card,background:"#2d1b00",marginTop:10,fontSize:11,color:"#e3b341"}}>
-          ⚠ Advance tax applicable if total tax liability ≥ ₹10,000. If advance tax is not deposited by due dates, interest u/s 234B & 234C is charged @1% per month.
-        </div>
-      </div>
-    </>)}
-  </div>);
-}
-
-// ── TDS MODULE ────────────────────────────────────────────────────────────────
-function TDSModule({token,toast,companyId}){
-  const[entries,setEntries]=useState([]);const[clients,setClients]=useState([]);const[loading,setLoading]=useState(true);const[modal,setModal]=useState(false);
-  const[f,setF]=useState({client_id:"",deductee_name:"",deductee_pan:"",deductee_type:"Company",section:"194C",payment_date:today(),payment_amount:"",tds_rate:"1",tds_amount:"",challan_no:"",challan_date:"",quarter:"Q1",fy:"2025-26",form_type:"26Q"});
-  const[summary,setSummary]=useState(null);
-  const SECTIONS=["192 - Salary","193 - Interest","194A - Interest (Other)","194B - Lottery","194C - Contractors","194D - Insurance","194G - Commission","194H - Brokerage","194I - Rent","194J - Professional Fees","194K - Dividends","194Q - Purchase of Goods","206C - TCS"];
-  const QUARTERS=["Q1 (Apr-Jun)","Q2 (Jul-Sep)","Q3 (Oct-Dec)","Q4 (Jan-Mar)"];
-  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
-
-  const load=useCallback(()=>{
-    setLoading(true);
-    Promise.all([
-      api(`/tds${companyId?`?company_id=${companyId}`:""}`, "GET",null,token),
-      api(`/it/clients${companyId?`?company_id=${companyId}`:""}`, "GET",null,token),
-    ]).then(([t,c])=>{
-      setEntries(t.entries||[]);setClients(c.clients||[]);
-      const totalDed=(t.entries||[]).reduce((a,e)=>a+parseFloat(e.tds_amount||0),0);
-      const totalDep=(t.entries||[]).reduce((a,e)=>a+parseFloat(e.tds_deposited||0),0);
-      setSummary({total:t.entries?.length,totalDed,totalDep,pending:totalDed-totalDep});
-      setLoading(false);
-    }).catch(()=>setLoading(false));
-  },[token,companyId]);
-  useEffect(()=>{load();},[load]);
-
-  const save=async()=>{
-    if(!f.deductee_name||!f.payment_amount)return toast("Deductee name and amount required","error");
-    try{await api("/tds","POST",{...f,company_id:companyId||null},token);toast("✅ TDS entry added","success");setModal(false);load();}
-    catch(e){toast(e.message,"error");}
-  };
-  const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/tds/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
-
-  return(<div>
-    {summary&&(<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:14}}>
-      {[{l:"Total Entries",v:summary.total,c:"#58a6ff"},{l:"TDS Deducted",v:fR(summary.totalDed),c:"#e3b341"},{l:"TDS Deposited",v:fR(summary.totalDep),c:"#3fb950"},{l:"Pending Deposit",v:fR(summary.pending),c:"#f85149"}].map(k=>(
-        <div key={k.l} style={S.kpi}><div style={S.label}>{k.l}</div><div style={{fontWeight:700,color:k.c,fontSize:k.l.includes("₹")?12:20}}>{k.v}</div></div>
-      ))}
-    </div>)}
-    <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-      <select style={{...S.select,width:80}} onChange={e=>{}}>
-        {QUARTERS.map(q=><option key={q}>{q}</option>)}
-      </select>
-      <button onClick={()=>{setF({...f,payment_date:today()});setModal(true);}} style={{...S.btn,marginLeft:"auto"}}>+ Add TDS Entry</button>
-    </div>
-    {loading?<Spinner/>:(
-      <div style={S.card}>
-        {entries.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No TDS entries. Start adding deductions.</div>:(
-          <table style={S.tbl}><thead><tr>{["Date","Deductee","PAN","Section","Payment","TDS","Deposited","Challan","Status",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-          <tbody>{entries.map(e=>(
-            <tr key={e.id}>
-              <td style={S.td}>{e.payment_date}</td>
-              <td style={{...S.td,fontWeight:600}}>{e.deductee_name}</td>
-              <td style={{...S.td,...S.mono}}>{e.deductee_pan||"—"}</td>
-              <td style={S.td}>{e.section}</td>
-              <td style={S.td}>{fR(e.payment_amount)}</td>
-              <td style={{...S.td,color:"#e3b341",fontWeight:600}}>{fR(e.tds_amount)}</td>
-              <td style={{...S.td,color:"#3fb950"}}>{fR(e.tds_deposited)}</td>
-              <td style={S.td}>{e.challan_no||"—"}</td>
-              <td style={S.td}>{badge(e.status==="deposited"?"Deposited":"Pending",e.status==="deposited"?"green":"amber")}</td>
-              <td style={S.tdR}><button onClick={()=>del(e.id)} style={{...S.btnR,fontSize:10,padding:"3px 8px"}}>Del</button></td>
-            </tr>
-          ))}</tbody></table>
-        )}
-      </div>
-    )}
-    {modal&&<Modal title="New TDS Entry" onClose={()=>setModal(false)} wide>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Deductee Name *</label><input style={S.input} value={f.deductee_name} onChange={e=>setF(p=>({...p,deductee_name:e.target.value}))}/></div>
-        <div style={S.fg}><label style={S.label}>Deductee PAN</label><input style={S.input} value={f.deductee_pan} onChange={e=>setF(p=>({...p,deductee_pan:e.target.value.toUpperCase()}))} maxLength={10}/></div>
-      </div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Section</label><select style={S.select} value={f.section} onChange={e=>setF(p=>({...p,section:e.target.value.split(" - ")[0]}))}>
-          {SECTIONS.map(s=><option key={s} value={s}>{s}</option>)}
-        </select></div>
-        <div style={S.fg}><label style={S.label}>Payment Date</label><input type="date" style={S.input} value={f.payment_date} onChange={e=>setF(p=>({...p,payment_date:e.target.value}))}/></div>
-      </div>
-      <div style={S.col3}>
-        <div style={S.fg}><label style={S.label}>Payment Amount (₹)</label><input type="number" style={S.input} value={f.payment_amount} onChange={e=>{const amt=parseFloat(e.target.value)||0;const tds=Math.round(amt*(parseFloat(f.tds_rate)||0)/100);setF(p=>({...p,payment_amount:e.target.value,tds_amount:String(tds)}));}}/></div>
-        <div style={S.fg}><label style={S.label}>TDS Rate (%)</label><input type="number" style={S.input} value={f.tds_rate} onChange={e=>{const rate=parseFloat(e.target.value)||0;const tds=Math.round((parseFloat(f.payment_amount)||0)*rate/100);setF(p=>({...p,tds_rate:e.target.value,tds_amount:String(tds)}));}}/></div>
-        <div style={S.fg}><label style={S.label}>TDS Amount (₹)</label><input type="number" style={S.input} value={f.tds_amount} onChange={e=>setF(p=>({...p,tds_amount:e.target.value}))}/></div>
-      </div>
-      <div style={S.col3}>
-        <div style={S.fg}><label style={S.label}>Quarter</label><select style={S.select} value={f.quarter} onChange={e=>setF(p=>({...p,quarter:e.target.value}))}><option value="Q1">Q1 (Apr-Jun)</option><option value="Q2">Q2 (Jul-Sep)</option><option value="Q3">Q3 (Oct-Dec)</option><option value="Q4">Q4 (Jan-Mar)</option></select></div>
-        <div style={S.fg}><label style={S.label}>Challan No</label><input style={S.input} value={f.challan_no} onChange={e=>setF(p=>({...p,challan_no:e.target.value}))}/></div>
-        <div style={S.fg}><label style={S.label}>Challan Date</label><input type="date" style={S.input} value={f.challan_date} onChange={e=>setF(p=>({...p,challan_date:e.target.value}))}/></div>
-      </div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={S.btnO}>Cancel</button><button onClick={save} style={S.btn}>Save</button></div>
-    </Modal>}
-  </div>);
-}
-
-// ── COMPLIANCE CALENDAR ───────────────────────────────────────────────────────
-function ComplianceCalendar({token,toast,companyId}){
-  const[tasks,setTasks]=useState([]);const[loading,setLoading]=useState(true);const[filter,setFilter]=useState("all");const[modal,setModal]=useState(false);
-  const[f,setF]=useState({task_name:"",category:"GST",due_date:"",client_name:"",period:"",priority:"normal",notes:""});
-  const CATS=["GST","TDS","Income Tax","ROC","Payroll","Audit","FEMA","Other"];
-  const fmtDate=d=>d?new Date(d).toLocaleDateString("en-IN"):"-";
-  const isOverdue=d=>new Date(d)<new Date()&&d;
-  const isDueSoon=d=>{const diff=(new Date(d)-new Date())/(1000*60*60*24);return diff>=0&&diff<=7;};
-
-  const load=useCallback(()=>{
-    setLoading(true);
-    api(`/compliance?${companyId?`company_id=${companyId}&`:""}${filter!=="all"?`status=${filter}`:""}`,"GET",null,token)
-      .then(d=>{setTasks(d.tasks||[]);setLoading(false);}).catch(()=>setLoading(false));
-  },[token,companyId,filter]);
-  useEffect(()=>{load();},[load]);
-
-  const seedTasks=async()=>{try{const d=await api("/compliance/seed","POST",{company_id:companyId,fy:"2026-27"},token);toast(d.message,"success");load();}catch(e){toast(e.message,"error");}};
-  const toggle=async(t)=>{try{await api(`/compliance/${t.id}`,"PUT",{status:t.status==="done"?"pending":"done"},token);load();}catch(e){toast(e.message,"error");}};
-  const del=async id=>{if(!window.confirm("Delete?"))return;try{await api(`/compliance/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
-  const save=async()=>{if(!f.task_name||!f.due_date)return toast("Task name and due date required","error");try{await api("/compliance","POST",{...f,company_id:companyId||null},token);toast("✅ Added","success");setModal(false);load();}catch(e){toast(e.message,"error");}};
-
-  const pending=tasks.filter(t=>t.status!=="done").length;
-  const overdue=tasks.filter(t=>t.status!=="done"&&isOverdue(t.due_date)).length;
-  const dueSoon=tasks.filter(t=>t.status!=="done"&&isDueSoon(t.due_date)).length;
-
-  return(<div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:10,marginBottom:14}}>
-      {[{l:"Total",v:tasks.length,c:"#58a6ff"},{l:"Pending",v:pending,c:"#e3b341"},{l:"Overdue",v:overdue,c:"#f85149"},{l:"Due in 7 days",v:dueSoon,c:"#bf91f3"},{l:"Done",v:tasks.filter(t=>t.status==="done").length,c:"#3fb950"}].map(k=>(
-        <div key={k.l} style={S.kpi}><div style={S.label}>{k.l}</div><div style={{fontSize:20,fontWeight:700,color:k.c}}>{k.v}</div></div>
-      ))}
-    </div>
-    <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
-      {["all","pending","done"].map(s=><button key={s} onClick={()=>setFilter(s)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${filter===s?"#58a6ff":C.border}`,background:filter===s?"#0c1d2e":"transparent",color:filter===s?"#58a6ff":C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:11}}>{s}</button>)}
-      <button onClick={seedTasks} style={{...S.btnO,fontSize:11,marginLeft:"auto"}}>🌱 Seed Standard Dates</button>
-      <button onClick={()=>{setF({task_name:"",category:"GST",due_date:"",client_name:"",period:"",priority:"normal",notes:""});setModal(true);}} style={S.btn}>+ Add Task</button>
-    </div>
-    {loading?<Spinner/>:(
-      <div style={S.card}>
-        {tasks.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No tasks. Click "Seed Standard Dates" to auto-populate all compliance due dates.</div>:(
-          <table style={S.tbl}><thead><tr>{["Due Date","Task","Category","Client","Priority","Status",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-          <tbody>{tasks.map(t=>(
-            <tr key={t.id} style={{background:t.status==="done"?"rgba(35,134,54,0.05)":isOverdue(t.due_date)&&t.status!=="done"?"rgba(218,54,51,0.08)":""}}>
-              <td style={{...S.td,fontWeight:600,color:isOverdue(t.due_date)&&t.status!=="done"?"#f85149":isDueSoon(t.due_date)?"#e3b341":C.sub}}>{fmtDate(t.due_date)}</td>
-              <td style={{...S.td,textDecoration:t.status==="done"?"line-through":""}}>{t.task_name}</td>
-              <td style={S.td}>{badge(t.category,t.category==="GST"?"blue":t.category==="TDS"?"amber":t.category==="Income Tax"?"purple":"gray")}</td>
-              <td style={S.td}>{t.client_name||"—"}</td>
-              <td style={S.td}>{badge(t.priority,t.priority==="high"?"red":t.priority==="normal"?"gray":"gray")}</td>
-              <td style={S.td}><button onClick={()=>toggle(t)} style={{...S.btnO,fontSize:10,padding:"3px 10px"}}>{t.status==="done"?"✅ Done":"Mark Done"}</button></td>
-              <td style={S.tdR}><button onClick={()=>del(t.id)} style={{background:"none",border:"none",color:"#f85149",cursor:"pointer",fontSize:14}}>✕</button></td>
-            </tr>
-          ))}</tbody></table>
-        )}
-      </div>
-    )}
-    {modal&&<Modal title="Add Compliance Task" onClose={()=>setModal(false)}>
-      <div style={S.fg}><label style={S.label}>Task Name *</label><input style={S.input} value={f.task_name} onChange={e=>setF(p=>({...p,task_name:e.target.value}))}/></div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Category</label><select style={S.select} value={f.category} onChange={e=>setF(p=>({...p,category:e.target.value}))}>{CATS.map(c=><option key={c}>{c}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Due Date *</label><input type="date" style={S.input} value={f.due_date} onChange={e=>setF(p=>({...p,due_date:e.target.value}))}/></div>
-      </div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Client Name</label><input style={S.input} value={f.client_name} onChange={e=>setF(p=>({...p,client_name:e.target.value}))}/></div>
-        <div style={S.fg}><label style={S.label}>Period (e.g. 05-2026)</label><input style={S.input} value={f.period} onChange={e=>setF(p=>({...p,period:e.target.value}))}/></div>
-      </div>
-      <div style={S.fg}><label style={S.label}>Priority</label><select style={S.select} value={f.priority} onChange={e=>setF(p=>({...p,priority:e.target.value}))}><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option></select></div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={S.btnO}>Cancel</button><button onClick={save} style={S.btn}>Add</button></div>
-    </Modal>}
-  </div>);
-}
-
-// ── DOCUMENT MANAGER ─────────────────────────────────────────────────────────
-function DocumentManager({token,toast,companyId}){
-  const[docs,setDocs]=useState([]);const[loading,setLoading]=useState(true);const[uploading,setUploading]=useState(false);const[catFilter,setCatFilter]=useState("all");const[file,setFile]=useState(null);
-  const[f,setF]=useState({doc_name:"",doc_type:"ITR Acknowledgment",category:"IT",tags:"",ay:"2026-27",client_id:""});
-  const[clients,setClients]=useState([]);const[showUpload,setShowUpload]=useState(false);
-  const DOC_TYPES=["ITR Acknowledgment","Form 16","Form 16A","GST Return","GSTR-1","GSTR-3B","Bank Statement","Audit Report","Tax Audit 3CD","Balance Sheet","P&L Account","TDS Certificate","Advance Tax Challan","Other"];
-  const CATS=["IT","GST","TDS","Audit","Payroll","Bank","Other"];
-  const fmtSize=b=>b>1024*1024?`${(b/1024/1024).toFixed(1)} MB`:b>1024?`${(b/1024).toFixed(0)} KB`:`${b} B`;
-
-  const load=useCallback(()=>{
-    setLoading(true);
-    Promise.all([
-      api(`/documents?${companyId?`company_id=${companyId}&`:""}${catFilter!=="all"?`category=${catFilter}`:""}`,"GET",null,token),
-      api(`/it/clients${companyId?`?company_id=${companyId}`:""}`, "GET",null,token),
-    ]).then(([d,c])=>{setDocs(d.documents||[]);setClients(c.clients||[]);setLoading(false);}).catch(()=>setLoading(false));
-  },[token,companyId,catFilter]);
-  useEffect(()=>{load();},[load]);
-
-  const upload=async()=>{
-    if(!file)return toast("Select a file","error");
-    setUploading(true);
-    try{
-      const fd=new FormData();fd.append("file",file);
-      Object.entries({...f,company_id:companyId||""}).forEach(([k,v])=>v&&fd.append(k,v));
-      const res=await fetch(`${API}/documents`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
-      const d=await res.json();
-      if(d.success){toast("✅ Document uploaded","success");setShowUpload(false);setFile(null);load();}else toast(d.message,"error");
-    }catch(e){toast(e.message,"error");}
-    setUploading(false);
-  };
-  const del=async id=>{if(!window.confirm("Delete document?"))return;try{await api(`/documents/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
-  const download=id=>{window.open(`${API}/documents/${id}/download?token=${token}`,"_blank");};
-
-  return(<div>
-    <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
-      {["all",...CATS].map(c=><button key={c} onClick={()=>setCatFilter(c)} style={{padding:"5px 14px",borderRadius:20,border:`1px solid ${catFilter===c?"#58a6ff":C.border}`,background:catFilter===c?"#0c1d2e":"transparent",color:catFilter===c?"#58a6ff":C.muted,cursor:"pointer",fontSize:11,fontFamily:"inherit"}}>{c}</button>)}
-      <button onClick={()=>setShowUpload(true)} style={{...S.btn,marginLeft:"auto"}}>📤 Upload Document</button>
-    </div>
-    {loading?<Spinner/>:(
-      <div style={S.card}>
-        {docs.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No documents uploaded yet</div>:(
-          <table style={S.tbl}><thead><tr>{["Document Name","Type","Category","AY","Size","Date",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-          <tbody>{docs.map(d=>(
-            <tr key={d.id}>
-              <td style={{...S.td,fontWeight:600,cursor:"pointer",color:"#58a6ff"}} onClick={()=>download(d.id)}>📄 {d.doc_name}</td>
-              <td style={S.td}>{d.doc_type}</td>
-              <td style={S.td}>{badge(d.category,d.category==="IT"?"blue":d.category==="GST"?"teal":"gray")}</td>
-              <td style={S.td}>{d.ay||"—"}</td>
-              <td style={S.td}>{fmtSize(d.file_size||0)}</td>
-              <td style={S.td}>{new Date(d.created_at).toLocaleDateString("en-IN")}</td>
-              <td style={S.tdR}><ActionMenu items={[{label:"⬇️ Download",onClick:()=>download(d.id)},{label:"🗑 Delete",danger:true,onClick:()=>del(d.id)}]}/></td>
-            </tr>
-          ))}</tbody></table>
-        )}
-      </div>
-    )}
-    {showUpload&&<Modal title="Upload Document" onClose={()=>{setShowUpload(false);setFile(null);}}>
-      <div style={S.fg}><label style={S.label}>File</label>
-        <label style={{...S.btnO,cursor:"pointer",display:"block",textAlign:"center"}}>
-          {file?`✅ ${file.name}`:"Choose File (PDF, Excel, Image)"}
-          <input type="file" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.doc,.docx" onChange={e=>setFile(e.target.files[0])} style={{display:"none"}}/>
-        </label>
-      </div>
-      <div style={S.fg}><label style={S.label}>Document Name</label><input style={S.input} value={f.doc_name} onChange={e=>setF(p=>({...p,doc_name:e.target.value}))}/></div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Document Type</label><select style={S.select} value={f.doc_type} onChange={e=>setF(p=>({...p,doc_type:e.target.value}))}>{DOC_TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Category</label><select style={S.select} value={f.category} onChange={e=>setF(p=>({...p,category:e.target.value}))}>{CATS.map(c=><option key={c}>{c}</option>)}</select></div>
-      </div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Assessment Year</label><select style={S.select} value={f.ay} onChange={e=>setF(p=>({...p,ay:e.target.value}))}>{["2026-27","2025-26","2024-25","2023-24"].map(a=><option key={a}>{a}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Client</label><select style={S.select} value={f.client_id} onChange={e=>setF(p=>({...p,client_id:e.target.value}))}><option value="">— General —</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-      </div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setShowUpload(false)} style={S.btnO}>Cancel</button><button onClick={upload} disabled={!file||uploading} style={{...S.btn,opacity:!file?0.5:1}}>{uploading?"Uploading...":"Upload"}</button></div>
-    </Modal>}
-  </div>);
-}
-
-// ── PAYROLL MODULE ────────────────────────────────────────────────────────────
-function Payroll({token,toast,companyId}){
-  const[salaries,setSalaries]=useState([]);const[loading,setLoading]=useState(true);const[processing,setProcessing]=useState(false);
-  const[month,setMonth]=useState(String(new Date().getMonth()+1).padStart(2,"0"));const[year,setYear]=useState(String(new Date().getFullYear()));
-  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
-  const MONTHS=["01","02","03","04","05","06","07","08","09","10","11","12"];
-  const MNAMES={};["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].forEach((m,i)=>MNAMES[String(i+1).padStart(2,"0")]=m);
-
-  const load=useCallback(()=>{
-    if(!companyId)return;
-    setLoading(true);
-    api(`/payroll/salaries?company_id=${companyId}&period=${month}-${year}`,"GET",null,token)
-      .then(d=>{setSalaries(d.salaries||[]);setLoading(false);}).catch(()=>setLoading(false));
-  },[token,companyId,month,year]);
-  useEffect(()=>{load();},[load]);
-
-  const process=async()=>{
-    if(!companyId)return toast("Select company","error");
-    setProcessing(true);
-    try{const d=await api("/payroll/process","POST",{company_id:companyId,month:parseInt(month),year:parseInt(year)},token);toast(d.message,"success");load();}
-    catch(e){toast(e.message,"error");}
-    setProcessing(false);
-  };
-
-  const totalGross=salaries.reduce((a,s)=>a+parseFloat(s.gross||0),0);
-  const totalNet=salaries.reduce((a,s)=>a+parseFloat(s.net_salary||0),0);
-  const totalPF=salaries.reduce((a,s)=>a+parseFloat(s.pf_employee||0)+parseFloat(s.pf_employer||0),0);
-
-  if(!companyId)return<div style={{...S.card,textAlign:"center",padding:30,color:C.muted}}>Select a company first</div>;
-  return(<div>
-    <div style={{...S.card,background:"#0c1d2e",marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#58a6ff",marginBottom:4}}>💰 Payroll Processing</div>
-      <div style={{fontSize:12,color:C.muted}}>Process monthly salary for all active employees. Automatic PF (12%/12%), ESI (0.75%/3.25% if salary ≤ ₹21,000), and Professional Tax deductions.</div>
-    </div>
-    <div style={{display:"flex",gap:10,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
-      <select style={{...S.select,width:80}} value={month} onChange={e=>setMonth(e.target.value)}>{MONTHS.map(m=><option key={m}>{m}</option>)}</select>
-      <select style={{...S.select,width:90}} value={year} onChange={e=>setYear(e.target.value)}>{["2026","2025","2024"].map(y=><option key={y}>{y}</option>)}</select>
-      <button onClick={process} disabled={processing} style={{...S.btnG,opacity:processing?0.5:1}}>{processing?"Processing...":"⚙ Process Salary"}</button>
-      <button onClick={load} style={S.btnO}>🔄</button>
-    </div>
-    {salaries.length>0&&(<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:14}}>
-      {[{l:"Employees",v:salaries.length,c:"#58a6ff"},{l:"Gross Payroll",v:fR(totalGross),c:"#e3b341"},{l:"Net Payable",v:fR(totalNet),c:"#3fb950"},{l:"PF (Emp+Empr)",v:fR(totalPF),c:"#bf91f3"}].map(k=>(
-        <div key={k.l} style={S.kpi}><div style={S.label}>{k.l}</div><div style={{fontWeight:700,color:k.c,fontSize:k.l.includes("₹")?12:20}}>{k.v}</div></div>
-      ))}
-    </div>)}
-    {loading?<Spinner/>:(
-      <div style={S.card}>
-        {salaries.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>Click "Process Salary" to generate salary for {MNAMES[month]}-{year}</div>:(
-          <table style={S.tbl}><thead><tr>{["Employee","Designation","Gross","PF (Emp)","ESI (Emp)","PT","Net Salary"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-          <tbody>{salaries.map(s=>(
-            <tr key={s.id}>
-              <td style={{...S.td,fontWeight:600}}>{s.emp_name}</td>
-              <td style={S.td}>{s.designation||"—"}</td>
-              <td style={{...S.td,color:"#e3b341"}}>{fR(s.gross)}</td>
-              <td style={S.td}>{fR(s.pf_employee)}</td>
-              <td style={S.td}>{fR(s.esi_employee)}</td>
-              <td style={S.td}>{fR(s.pt)}</td>
-              <td style={{...S.tdR,fontWeight:700,color:"#3fb950"}}>{fR(s.net_salary)}</td>
-            </tr>
-          ))}</tbody>
-          <tfoot><tr><td colSpan={2} style={{...S.td,fontWeight:700}}>TOTAL</td><td style={{...S.td,color:"#e3b341",fontWeight:700}}>{fR(totalGross)}</td><td colSpan={3} style={S.td}/><td style={{...S.tdR,fontWeight:700,color:"#3fb950"}}>{fR(totalNet)}</td></tr></tfoot></table>
-        )}
-      </div>
-    )}
-  </div>);
-}
-
-// ── EMPLOYEES ────────────────────────────────────────────────────────────────
-function Employees({token,toast,companyId}){
-  const[emps,setEmps]=useState([]);const[loading,setLoading]=useState(true);const[modal,setModal]=useState(false);
-  const[f,setF]=useState({name:"",employee_code:"",designation:"",department:"",pan:"",uan:"",doj:today(),basic_salary:"",hra:"",special_allowance:"",other_allowance:"",pf_applicable:true,esi_applicable:false,pt_applicable:false,pt_amount:"200"});
-  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN")}`;
-
-  const load=useCallback(()=>{
-    if(!companyId)return;setLoading(true);
-    api(`/payroll/employees?company_id=${companyId}`,"GET",null,token).then(d=>{setEmps(d.employees||[]);setLoading(false);}).catch(()=>setLoading(false));
-  },[token,companyId]);
-  useEffect(()=>{load();},[load]);
-
-  const calcGross=()=>([f.basic_salary,f.hra,f.special_allowance,f.other_allowance].reduce((a,v)=>a+(parseFloat(v)||0),0));
-  const save=async()=>{if(!f.name||!f.basic_salary)return toast("Name and basic salary required","error");try{await api("/payroll/employees","POST",{...f,company_id:companyId},token);toast("✅ Employee added","success");setModal(false);load();}catch(e){toast(e.message,"error");}};
-  const del=async id=>{if(!window.confirm("Delete employee?"))return;try{await api(`/payroll/employees/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}};
-
-  if(!companyId)return<div style={{...S.card,textAlign:"center",padding:30,color:C.muted}}>Select a company first</div>;
-  return(<div>
-    <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}><button onClick={()=>{setF({name:"",employee_code:"",designation:"",department:"",pan:"",uan:"",doj:today(),basic_salary:"",hra:"",special_allowance:"",other_allowance:"",pf_applicable:true,esi_applicable:false,pt_applicable:false,pt_amount:"200"});setModal(true);}} style={S.btn}>+ New Employee</button></div>
-    {loading?<Spinner/>:(
-      <div style={S.card}>
-        {emps.length===0?<div style={{textAlign:"center",padding:30,color:C.muted}}>No employees yet</div>:(
-          <table style={S.tbl}><thead><tr>{["Name","Code","Designation","Basic","Gross","PF","DoJ","Action"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-          <tbody>{emps.map(e=>{const gross=(parseFloat(e.basic_salary)||0)+(parseFloat(e.hra)||0)+(parseFloat(e.special_allowance)||0)+(parseFloat(e.other_allowance)||0);return(
-            <tr key={e.id}>
-              <td style={{...S.td,fontWeight:600}}>{e.name}</td>
-              <td style={S.td}>{e.employee_code||"—"}</td>
-              <td style={S.td}>{e.designation||"—"}</td>
-              <td style={S.td}>{fR(e.basic_salary)}</td>
-              <td style={{...S.td,color:"#e3b341"}}>{fR(gross)}</td>
-              <td style={S.td}>{e.pf_applicable?badge("PF","green"):badge("No PF","gray")}</td>
-              <td style={S.td}>{e.doj?.substring(0,10)||"—"}</td>
-              <td style={S.tdR}><button onClick={()=>del(e.id)} style={{...S.btnR,fontSize:10,padding:"3px 8px"}}>Del</button></td>
-            </tr>
-          );})}
-          </tbody></table>
-        )}
-      </div>
-    )}
-    {modal&&<Modal title="New Employee" onClose={()=>setModal(false)} wide>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Full Name *</label><input style={S.input} value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))}/></div>
-        <div style={S.fg}><label style={S.label}>Employee Code</label><input style={S.input} value={f.employee_code} onChange={e=>setF(p=>({...p,employee_code:e.target.value}))}/></div>
-      </div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>Designation</label><input style={S.input} value={f.designation} onChange={e=>setF(p=>({...p,designation:e.target.value}))}/></div>
-        <div style={S.fg}><label style={S.label}>Department</label><input style={S.input} value={f.department} onChange={e=>setF(p=>({...p,department:e.target.value}))}/></div>
-      </div>
-      <div style={S.col2}>
-        <div style={S.fg}><label style={S.label}>PAN</label><input style={S.input} value={f.pan} onChange={e=>setF(p=>({...p,pan:e.target.value.toUpperCase()}))} maxLength={10}/></div>
-        <div style={S.fg}><label style={S.label}>UAN</label><input style={S.input} value={f.uan} onChange={e=>setF(p=>({...p,uan:e.target.value}))}/></div>
-      </div>
-      <div style={{...S.card,background:"#0c1922",marginBottom:10}}>
-        <div style={{fontWeight:600,color:"#58a6ff",marginBottom:8,fontSize:12}}>Salary Structure</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10}}>
-          {[["Basic Salary *","basic_salary"],["HRA","hra"],["Special Allowance","special_allowance"],["Other Allowance","other_allowance"]].map(([l,k])=>(
-            <div key={k} style={S.fg}><label style={S.label}>{l}</label><input type="number" style={S.input} value={f[k]} onChange={e=>setF(p=>({...p,[k]:e.target.value}))}/></div>
-          ))}
-        </div>
-        <div style={{fontSize:12,color:"#3fb950",marginTop:6}}>Gross: {fR(calcGross())}/month</div>
-      </div>
-      <div style={{display:"flex",gap:16,marginBottom:14}}>
-        {[["PF (12%)","pf_applicable"],["ESI (if ≤₹21K)","esi_applicable"],["Prof. Tax","pt_applicable"]].map(([l,k])=>(
-          <label key={k} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer"}}>
-            <input type="checkbox" checked={f[k]} onChange={e=>setF(p=>({...p,[k]:e.target.checked}))}/>{l}
-          </label>
-        ))}
-      </div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button onClick={()=>setModal(false)} style={S.btnO}>Cancel</button><button onClick={save} style={S.btn}>Save</button></div>
-    </Modal>}
-  </div>);
-}
-
-// ════════════════════════════════════════════
-// INCOME TAX PORTAL FEATURES
-// ════════════════════════════════════════════
-
-// ── 26AS / AIS IMPORT & RECONCILIATION ──────────────────────────────────────
-function AIS26AS({token,toast}){
-  const[clients,setClients]=useState([]);const[clientId,setClientId]=useState("");const[ay,setAy]=useState("2026-27");
-  const[file,setFile]=useState(null);const[source,setSource]=useState("26AS");const[uploading,setUploading]=useState(false);
-  const[entries,setEntries]=useState([]);const[summary,setSummary]=useState(null);const[loading,setLoading]=useState(false);
-  const AYS=["2026-27","2025-26","2024-25","2023-24"];
-  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2})}`;
-
-  useEffect(()=>{api("/it/clients","GET",null,token).then(d=>setClients(d.clients||[])).catch(()=>{});},[token]);
-
-  const upload=async()=>{
-    if(!file||!clientId)return toast("Select client and file","error");
-    setUploading(true);
-    try{
-      const fd=new FormData();fd.append("file",file);fd.append("client_id",clientId);fd.append("ay",ay);fd.append("source",source);
-      const res=await fetch(`${API}/it/import-26as`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
-      const d=await res.json();
-      if(d.success){toast(d.message,"success");setFile(null);loadEntries();}
-      else toast(d.message,"error");
-    }catch(e){toast(e.message,"error");}
-    setUploading(false);
-  };
-
-  const loadEntries=useCallback(()=>{
-    if(!clientId)return;setLoading(true);
-    api(`/it/26as/${clientId}?ay=${ay}`,"GET",null,token)
-      .then(d=>{setEntries(d.entries||[]);setSummary(d.summary);setLoading(false);}).catch(()=>setLoading(false));
-  },[clientId,ay,token]);
-  useEffect(()=>{if(clientId)loadEntries();},[loadEntries]);
-
-  return(<div>
-    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#58a6ff",marginBottom:6}}>📊 26AS / AIS Data Import</div>
-      <div style={{fontSize:12,color:C.sub}}>Download 26AS or AIS from IT portal as Excel → upload here → reconcile with your TDS records.</div>
-      <div style={{marginTop:8}}><button onClick={()=>window.open("https://eportal.incometax.gov.in/iec/foservices/#/view-tax-credit-26AS","_blank")} style={{...S.btnO,fontSize:11}}>🌐 Download from IT Portal →</button></div>
-    </div>
-    <div style={S.card}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:12}}>
-        <div style={S.fg}><label style={S.label}>Client *</label><select style={S.select} value={clientId} onChange={e=>setClientId(e.target.value)}><option value="">— Select —</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>AY</label><select style={S.select} value={ay} onChange={e=>setAy(e.target.value)}>{AYS.map(a=><option key={a}>{a}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Source</label><select style={S.select} value={source} onChange={e=>setSource(e.target.value)}><option>26AS</option><option>AIS</option><option>TIS</option></select></div>
-        <div style={S.fg}><label style={S.label}>Excel File</label><label style={{...S.btnO,cursor:"pointer",display:"block",textAlign:"center"}}>{file?file.name:"Choose Excel (.xlsx)"}<input type="file" accept=".xlsx,.xls,.csv" onChange={e=>setFile(e.target.files[0])} style={{display:"none"}}/></label></div>
-      </div>
-      <button onClick={upload} disabled={!file||!clientId||uploading} style={{...S.btn,opacity:!file||!clientId?0.5:1}}>{uploading?"Importing...":"📤 Import"}</button>
-    </div>
-    {summary&&<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:14}}>
-      {[{l:"Total Entries",v:summary.count,c:"#58a6ff"},{l:"Total Income",v:fR(summary.total_income),c:"#e3b341"},{l:"TDS Deducted",v:fR(summary.total_tds),c:"#3fb950"}].map(k=>(
-        <div key={k.l} style={S.kpi}><div style={S.label}>{k.l}</div><div style={{fontWeight:700,color:k.c}}>{k.v}</div></div>
-      ))}
-    </div>}
-    {loading?<Spinner/>:entries.length>0&&(
-      <div style={S.card}>
-        <table style={S.tbl}><thead><tr>{["Deductor","TAN","Section","Amount","TDS","Date","Source"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-        <tbody>{entries.map(e=>(
-          <tr key={e.id}><td style={{...S.td,fontWeight:600}}>{e.deductor_name}</td><td style={{...S.td,...S.mono}}>{e.deductor_tan||"—"}</td><td style={S.td}>{e.section||"—"}</td><td style={S.td}>{fR(e.amount)}</td><td style={{...S.td,color:"#3fb950",fontWeight:600}}>{fR(e.tds_amount)}</td><td style={S.td}>{e.date?.substring(0,10)||"—"}</td><td style={S.tdR}>{badge(e.source,"blue")}</td></tr>
-        ))}</tbody>
-        <tfoot><tr><td colSpan={3} style={{...S.td,fontWeight:700}}>Total</td><td style={{...S.td,fontWeight:700}}>{fR(entries.reduce((a,e)=>a+parseFloat(e.amount||0),0))}</td><td style={{...S.td,color:"#3fb950",fontWeight:700}}>{fR(entries.reduce((a,e)=>a+parseFloat(e.tds_amount||0),0))}</td><td colSpan={2}/></tr></tfoot>
-        </table>
-      </div>
-    )}
-  </div>);
-}
-
-// ── FORM 16 GENERATOR ────────────────────────────────────────────────────────
-function Form16Generator({token,toast}){
-  const[clients,setClients]=useState([]);const[clientId,setClientId]=useState("");const[ay,setAy]=useState("2026-27");const[fy,setFy]=useState("2025-26");const[formType,setFormType]=useState("16");
-  const[tdsEntries,setTdsEntries]=useState([]);const[loading,setLoading]=useState(false);
-  const AYS=["2026-27","2025-26","2024-25"];const FYS=["2025-26","2024-25","2023-24"];
-
-  useEffect(()=>{api("/it/clients","GET",null,token).then(d=>setClients(d.clients||[])).catch(()=>{});},[token]);
-  useEffect(()=>{
-    if(!clientId)return;
-    api(`/tds?client_id=${clientId}&fy=${fy}&form_type=${formType==="16"?"24Q":"26Q"}`,"GET",null,token).then(d=>setTdsEntries(d.entries||[])).catch(()=>{});
-  },[clientId,fy,formType,token]);
-
-  const generate=()=>{
-    if(!clientId)return toast("Select client","error");
-    const url=`${API}/it/form${formType}/${clientId}?ay=${ay}&fy=${fy}`;
-    window.open(`${url}&token=${token}`,"_blank");
-  };
-
-  const generate16A=id=>{window.open(`${API}/it/form16a/${id}?token=${token}`,"_blank");};
-
-  return(<div>
-    <div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#3fb950",marginBottom:4}}>📄 Form 16 / 16A Generator</div>
-      <div style={{fontSize:12,color:C.sub}}>Generate TDS certificates as printable PDF. Form 16 (Salary) and Form 16A (Non-Salary).</div>
-    </div>
-    <div style={S.card}>
-      <div style={{display:"flex",gap:6,marginBottom:14}}>
-        {[["16","Form 16 (Salary)"],["16A","Form 16A (Non-Salary)"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setFormType(k)} style={{padding:"7px 18px",borderRadius:7,border:`1px solid ${formType===k?"#1F6FEB":C.border}`,background:formType===k?"#0c1d2e":"transparent",color:formType===k?"#58a6ff":C.muted,cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:formType===k?600:400}}>{l}</button>
-        ))}
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:14}}>
-        <div style={S.fg}><label style={S.label}>Client *</label><select style={S.select} value={clientId} onChange={e=>setClientId(e.target.value)}><option value="">— Select —</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name} ({c.pan||"No PAN"})</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Assessment Year</label><select style={S.select} value={ay} onChange={e=>setAy(e.target.value)}>{AYS.map(a=><option key={a}>{a}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Financial Year</label><select style={S.select} value={fy} onChange={e=>setFy(e.target.value)}>{FYS.map(f=><option key={f}>{f}</option>)}</select></div>
-      </div>
-      {formType==="16"&&(<button onClick={generate} disabled={!clientId} style={{...S.btnG,opacity:!clientId?0.5:1}}>🖨 Generate Form 16 (PDF)</button>)}
-    </div>
-    {formType==="16A"&&tdsEntries.length>0&&(
-      <div style={S.card}>
-        <div style={{fontWeight:600,marginBottom:10}}>TDS Entries — Generate Form 16A per entry:</div>
-        <table style={S.tbl}><thead><tr>{["Deductee","Section","Payment Amt","TDS","Date","Action"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-        <tbody>{tdsEntries.map(t=>(
-          <tr key={t.id}><td style={S.td}>{t.deductee_name}</td><td style={S.td}>{t.section}</td><td style={S.td}>₹{parseFloat(t.payment_amount||0).toLocaleString("en-IN")}</td><td style={{...S.td,color:"#3fb950"}}>₹{parseFloat(t.tds_amount||0).toLocaleString("en-IN")}</td><td style={S.td}>{t.payment_date}</td><td style={S.tdR}><button onClick={()=>generate16A(t.id)} style={{...S.btn,fontSize:11,padding:"4px 10px"}}>🖨 Form 16A</button></td></tr>
-        ))}</tbody></table>
-      </div>
-    )}
-    {formType==="16A"&&tdsEntries.length===0&&clientId&&(<div style={{...S.card,textAlign:"center",padding:30,color:C.muted}}>No 26Q TDS entries for this client in {fy}. Add TDS entries first.</div>)}
-  </div>);
-}
-
-// ── CHALLAN 280 PRE-FILL ─────────────────────────────────────────────────────
-function Challan280({token,toast}){
-  const[clients,setClients]=useState([]);const[clientId,setClientId]=useState("");const[ay,setAy]=useState("2026-27");
-  const[amount,setAmount]=useState("");const[payType,setPayType]=useState("300");const[data,setData]=useState(null);const[loading,setLoading]=useState(false);
-  const PAY_TYPES=[["100","Advance Tax"],["300","Self-Assessment Tax"],["400","Tax on Regular Assessment"],["106","Tax on Distributed Profits"],["107","Tax on Distributed Income"]];
-
-  useEffect(()=>{api("/it/clients","GET",null,token).then(d=>setClients(d.clients||[])).catch(()=>{});},[token]);
-
-  const prefill=async()=>{
-    setLoading(true);
-    try{const d=await api("/it/challan280","POST",{client_id:clientId,ay,amount,payment_type:payType},token);setData(d);}catch(e){toast(e.message,"error");}
-    setLoading(false);
-  };
-
-  return(<div>
-    <div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#e3b341",marginBottom:4}}>🧾 Challan 280 — IT Tax Payment Guide</div>
-      <div style={{fontSize:12,color:C.sub}}>Fill details here → Follow steps to pay on IT portal. Challan BSR code & serial number save karo TDS module mein.</div>
-    </div>
-    <div style={S.card}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:14}}>
-        <div style={S.fg}><label style={S.label}>Client (optional)</label><select style={S.select} value={clientId} onChange={e=>setClientId(e.target.value)}><option value="">— Self/General —</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Assessment Year</label><select style={S.select} value={ay} onChange={e=>setAy(e.target.value)}>{["2026-27","2025-26","2024-25"].map(a=><option key={a}>{a}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Payment Type</label><select style={S.select} value={payType} onChange={e=>setPayType(e.target.value)}>{PAY_TYPES.map(([v,l])=><option key={v} value={v}>({v}) {l}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Amount (₹)</label><input type="number" style={S.input} value={amount} onChange={e=>setAmount(e.target.value)} placeholder="50000"/></div>
-      </div>
-      <button onClick={prefill} disabled={!amount||loading} style={{...S.btn,opacity:!amount?0.5:1}}>{loading?"...":" Generate Steps"}</button>
-    </div>
-    {data&&(<>
-      {data.client?.pan&&<div style={{...S.card,background:"#0c1d2e",marginBottom:10}}>
-        <div style={{fontWeight:600,marginBottom:6}}>Pre-fill Details</div>
-        <div style={S.col2}>
-          {[["PAN",data.client.pan],["Name",data.client.name],["AY",ay],["Payment Type",PAY_TYPES.find(p=>p[0]===payType)?.[1]||payType],["Amount",`₹${parseFloat(amount).toLocaleString("en-IN")}`]].map(([l,v])=>(
-            v&&<div key={l} style={{display:"flex",gap:8,padding:"4px 0"}}><span style={{color:C.muted,minWidth:80}}>{l}:</span><b style={{color:C.text}}>{v}</b></div>
-          ))}
-        </div>
-      </div>}
-      <div style={S.card}>
-        <div style={{fontWeight:600,color:"#3fb950",marginBottom:10}}>Steps to Pay on IT Portal:</div>
-        {data.data.steps.map((step,i)=>(
-          <div key={i} style={{display:"flex",gap:10,padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
-            <span style={{background:C.primary,color:"#fff",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,flexShrink:0}}>{i+1}</span>
-            <span style={{fontSize:12,color:C.sub}}>{step}</span>
-          </div>
-        ))}
-        <div style={{display:"flex",gap:10,marginTop:14}}>
-          <button onClick={()=>window.open(data.data.direct_link,"_blank")} style={{...S.btnG}}>🌐 Open IT Portal e-Pay Tax →</button>
-        </div>
-      </div>
-    </>)}
-  </div>);
-}
-
-// ── AI TAX PLANNING ───────────────────────────────────────────────────────────
-function TaxPlanning({token,toast}){
-  const[clients,setClients]=useState([]);const[clientId,setClientId]=useState("");const[ay,setAy]=useState("2026-27");
-  const[suggestions,setSuggestions]=useState(null);const[loading,setLoading]=useState(false);
-  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN")}`;
-
-  useEffect(()=>{api("/it/clients","GET",null,token).then(d=>setClients(d.clients||[])).catch(()=>{});},[token]);
-  const generate=async()=>{
-    setLoading(true);
-    try{const d=await api("/it/tax-planning","POST",{client_id:clientId||null,ay},token);setSuggestions(d.suggestions);}catch(e){toast(e.message,"error");}
-    setLoading(false);
-  };
-
-  return(<div>
-    <div style={{...S.card,background:"#1a0a2e",border:"1px solid #6e40c9",marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#bf91f3",marginBottom:4}}>🤖 AI Tax Planning Advisor</div>
-      <div style={{fontSize:12,color:C.sub}}>AI analyzes client's income & deductions → suggests optimal tax saving strategies, regime comparison, actionable investments.</div>
-    </div>
-    <div style={S.card}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:10,marginBottom:14}}>
-        <div style={S.fg}><label style={S.label}>Client (optional)</label><select style={S.select} value={clientId} onChange={e=>setClientId(e.target.value)}><option value="">— General Advice —</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-        <div style={S.fg}><label style={S.label}>Assessment Year</label><select style={S.select} value={ay} onChange={e=>setAy(e.target.value)}>{["2026-27","2025-26"].map(a=><option key={a}>{a}</option>)}</select></div>
-      </div>
-      <button onClick={generate} disabled={loading} style={{...S.btn,opacity:loading?0.5:1}}>{loading?"🤖 Analyzing...":"✨ Generate Tax Plan"}</button>
-    </div>
-    {loading&&<div style={{...S.card,textAlign:"center",padding:30}}><Spinner/><div style={{marginTop:10,color:C.muted,fontSize:12}}>AI is analyzing tax situation...</div></div>}
-    {suggestions&&!loading&&(<>
-      <div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:10}}>
-        <div style={{fontWeight:700,color:"#3fb950",marginBottom:6,fontSize:13}}>{suggestions.summary}</div>
-        <div style={S.col2}>
-          <div style={{...S.kpi,background:"#0D1117"}}><div style={S.label}>Old Regime Tax</div><div style={{fontWeight:700,color:"#f85149",fontSize:14}}>{fR(suggestions.old_regime_tax||0)}</div></div>
-          <div style={{...S.kpi,background:"#0D1117"}}><div style={S.label}>New Regime Tax</div><div style={{fontWeight:700,color:"#58a6ff",fontSize:14}}>{fR(suggestions.new_regime_tax||0)}</div></div>
-        </div>
-        <div style={{marginTop:10,padding:"8px 12px",background:suggestions.recommended_regime?.includes("Old")?"#2d1b00":"#0c1d2e",borderRadius:7,fontSize:12,fontWeight:600}}>
-          ✅ Recommended: <span style={{color:"#e3b341"}}>{suggestions.recommended_regime}</span>
-          {suggestions.old_regime_tax&&suggestions.new_regime_tax?<span style={{color:C.muted,fontWeight:400}}> (Save {fR(Math.abs((suggestions.old_regime_tax||0)-(suggestions.new_regime_tax||0)))})</span>:null}
-        </div>
-      </div>
-      {suggestions.suggestions?.length>0&&(<div style={S.card}>
-        <div style={{fontWeight:600,marginBottom:10}}>💡 Tax Saving Opportunities</div>
-        {suggestions.suggestions.map((s,i)=>(
-          <div key={i} style={{...S.card,padding:12,marginBottom:8,background:"#0D1117"}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-              <span style={{fontWeight:700,color:C.text}}>{s.category}</span>
-              <div style={{display:"flex",gap:6}}>
-                {badge(s.priority,s.priority==="High"?"green":s.priority==="Medium"?"amber":"gray")}
-                {s.potential_saving>0&&<span style={{color:"#3fb950",fontWeight:700,fontSize:11}}>Save {fR(s.potential_saving)}</span>}
-              </div>
-            </div>
-            <div style={{fontSize:12,color:C.sub}}>{s.action}</div>
-          </div>
-        ))}
-      </div>)}
-      {suggestions.immediate_actions?.length>0&&(<div style={S.card}>
-        <div style={{fontWeight:600,marginBottom:8,color:"#e3b341"}}>⚡ Immediate Actions</div>
-        {suggestions.immediate_actions.map((a,i)=>(
-          <div key={i} style={{display:"flex",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
-            <span style={{color:C.primary,fontWeight:700}}>{i+1}.</span>
-            <span style={{fontSize:12,color:C.sub}}>{a}</span>
-          </div>
-        ))}
-      </div>)}
-      {suggestions.caution&&<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03"}}><span style={{color:"#e3b341",fontSize:12}}>⚠ {suggestions.caution}</span></div>}
-    </>)}
-  </div>);
-}
-
-// ── IT PORTAL INTEGRATION ─────────────────────────────────────────────────────
-function ITPortal({token,toast}){
-  const[links,setLinks]=useState([]);
-  useEffect(()=>{api("/it/portal-links","GET",null,token).then(d=>setLinks(d.links||[])).catch(()=>{});},[token]);
-  const COLORS={"#1F6FEB":"Filing","#238636":"Payment","#9333ea":"TRACES","#d97706":"Registration","#0e9182":"Status"};
-  const colorMap={"e-Filing Portal":"#1F6FEB","e-Pay Tax":"#238636","26AS":"#9333ea","TDS":"#9333ea","TAN":"#d97706","PAN":"#d97706","Status":"#0e9182","Demand":"#e11d48"};
-  const getColor=name=>Object.entries(colorMap).find(([k])=>name.includes(k))?.[1]||"#1F6FEB";
-
-  return(<div>
-    <div style={{...S.card,background:"#0c1d2e",border:"1px solid #1f4872",marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#58a6ff",marginBottom:4}}>🔗 Income Tax Portal Integration</div>
-      <div style={{fontSize:12,color:C.sub}}>Direct links to all IT portal services. TaxPro prepares your data — portal pe ek click mein jaao aur file/pay karo.</div>
-    </div>
-    <div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:14}}>
-      <div style={{fontSize:12,color:"#e3b341",fontWeight:600,marginBottom:4}}>⚠ Official e-Filing API (ERI) ke baare mein</div>
-      <div style={{fontSize:11,color:C.sub,lineHeight:1.7}}>Direct ITR filing ke liye Income Tax Dept ka <b>ERI (e-Return Intermediary) license</b> chahiye hota hai — yeh CA firms ke liye available hai. TaxPro abhi data preparation + PDF generate karta hai. <b>Manual upload IT portal se karo.</b><br/>Future roadmap: ERI license le ke direct filing!</div>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
-      {links.map((l,i)=>(
-        <div key={i} style={{...S.card,marginBottom:0,cursor:"pointer",border:`1px solid ${C.border}`,transition:"border-color 0.2s"}}
-          onMouseEnter={e=>e.currentTarget.style.borderColor=getColor(l.name)}
-          onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <div style={{fontWeight:700,color:C.text,fontSize:12}}>{l.name}</div>
-          </div>
-          <div style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.6}}>{l.desc}</div>
-          <button onClick={()=>window.open(l.url,"_blank")} style={{...S.btn,background:getColor(l.name),fontSize:11,padding:"6px 14px"}}>Open Portal →</button>
-        </div>
-      ))}
-    </div>
-    <div style={{...S.card,marginTop:14}}>
-      <div style={{fontWeight:600,marginBottom:10}}>💡 Workflow: TaxPro → IT Portal</div>
-      {[
-        ["1️⃣ Client Data","IT Clients mein PAN, Aadhaar, DOB enter karo"],
-        ["2️⃣ 26AS Import","IT portal se 26AS download karo → TaxPro mein import karo"],
-        ["3️⃣ ITR Computation","ITR Filing section mein income/deductions enter karo → tax compute karo"],
-        ["4️⃣ Tax Planning","AI Tax Planning se suggestions lo — old vs new regime compare karo"],
-        ["5️⃣ Challan Payment","Balance tax ho to Challan 280 section se IT portal pe jaao → pay karo"],
-        ["6️⃣ Form 16/16A","TDS module mein entries karo → Form 16 generate karo → download PDF"],
-        ["7️⃣ Manual Filing","IT portal pe login karo → e-file ITR (TaxPro ka computed data use karo)"],
-      ].map(([step,desc])=>(
-        <div key={step} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.border}`}}>
-          <span style={{fontSize:16,flexShrink:0}}>{step}</span>
-          <span style={{fontSize:12,color:C.sub}}>{desc}</span>
-        </div>
-      ))}
-    </div>
-  </div>);
-}
-
-// ════════════════════════════════════════════
-// ADMIN PANEL — usage analytics across all users
 // ════════════════════════════════════════════
 function AdminPanel({token,toast}){
   const[stats,setStats]=useState(null);const[users,setUsers]=useState([]);const[loading,setLoading]=useState(true);
@@ -4753,4 +3834,405 @@ ${data.table12_hsn?.length>0?`<h3>Table 12 — HSN Summary</h3><table><tr><th>HS
 function downloadJSON(obj,filename){
   const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// GSTAT / APPELLATE AUTHORITY — APPEAL DRAFTING MODULE
+// 5 Steps: New Appeal → Upload Order → Facts & Grounds → AI Draft → Download
+// ════════════════════════════════════════════════════════════════════════
+
+const APPEAL_FORUMS=[
+  "GST Appellate Tribunal (GSTAT)",
+  "Appellate Authority (Additional/Joint Commissioner Appeals)",
+  "Commissioner (Appeals)",
+  "High Court",
+];
+const ORDER_TYPES=[
+  "Order-in-Original (OIO)","Show Cause Notice (SCN)","DRC-07 (Summary of Demand)",
+  "ASMT-13 (Best Judgement Assessment)","ADT-04 (Audit Report)","REG-19 (Cancellation Order)","Other",
+];
+
+function GSTATAppeal({token,toast,company}){
+  const[appeals,setAppeals]=useState([]);const[loading,setLoading]=useState(true);
+  const[active,setActive]=useState(null); // appeal being worked on
+  const cid=company?.id;
+  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN")}`;
+
+  const load=useCallback(()=>{
+    setLoading(true);
+    const q=cid?`?company_id=${cid}`:"";
+    api(`/appeals${q}`,"GET",null,token).then(d=>{setAppeals(d.appeals||[]);setLoading(false);}).catch(()=>setLoading(false));
+  },[token,cid]);
+  useEffect(()=>{load();},[load]);
+
+  const openAppeal=async(id)=>{
+    try{const d=await api(`/appeals/${id}`,"GET",null,token);setActive(d.appeal);}catch(e){toast(e.message,"error");}
+  };
+  const delAppeal=async(id)=>{
+    if(!window.confirm("Delete this appeal?"))return;
+    try{await api(`/appeals/${id}`,"DELETE",null,token);toast("Deleted","success");load();}catch(e){toast(e.message,"error");}
+  };
+
+  if(active)return(<AppealWorkspace token={token} toast={toast} company={company}
+    appeal={active} onBack={()=>{setActive(null);load();}}
+    onRefresh={async()=>{const d=await api(`/appeals/${active.id}`,"GET",null,token);setActive(d.appeal);}}/>);
+
+  return(<div>
+    <div style={{...S.card,background:"#1a0a2e",border:"1px solid #6e40c9",marginBottom:14}}>
+      <div style={{fontSize:14,fontWeight:700,color:"#bf91f3",marginBottom:4}}>⚖️ GSTAT / Appeal Drafting Module</div>
+      <div style={{fontSize:12,color:C.sub}}>
+        Upload the impugned order → AI extracts details → Build your grounds → AI drafts the appeal citing only your <b>Legal Library</b> (Act sections, Rules, Circulars, Court orders) — maximum citations per ground → Download as Word.
+      </div>
+      <div style={{...S.card,background:"#2d0e0e",border:"1px solid #6e1c1c",marginTop:10,padding:10}}>
+        <span style={{fontSize:11,color:"#f85149"}}>⚠ AI draft must be reviewed by a qualified advocate/CA before filing with GSTAT or Appellate Authority.</span>
+      </div>
+    </div>
+    <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
+      <button onClick={()=>setActive({_isNew:true})} style={S.btn}>+ New Appeal</button>
+    </div>
+    {loading?<Spinner/>:(
+      appeals.length===0?(
+        <div style={{...S.card,textAlign:"center",padding:50}}>
+          <div style={{fontSize:48,marginBottom:12}}>⚖️</div>
+          <div style={{fontWeight:700,color:C.text,marginBottom:6}}>No appeals yet</div>
+          <div style={{color:C.muted,fontSize:12,marginBottom:20}}>Click "New Appeal" to start drafting your first GSTAT / Appellate appeal</div>
+          <button onClick={()=>setActive({_isNew:true})} style={S.btn}>+ Draft First Appeal</button>
+        </div>
+      ):(
+        <div style={S.card}>
+          <table style={S.tbl}><thead><tr>
+            {["Forum","Order Ref No","Order Type","Sections","Period","Demand","Status",""].map(h=><th key={h} style={S.th}>{h}</th>)}
+          </tr></thead>
+          <tbody>{appeals.map(a=>(
+            <tr key={a.id} style={{cursor:"pointer"}} onClick={()=>openAppeal(a.id)}>
+              <td style={{...S.td,fontSize:11}}>{(a.appeal_to||"").replace("GST Appellate Tribunal","GSTAT")}</td>
+              <td style={{...S.td,fontWeight:600,color:"#58a6ff"}}>{a.order_ref_no||"—"}</td>
+              <td style={{...S.td,fontSize:11}}>{a.order_type||"—"}</td>
+              <td style={{...S.td,fontSize:11}}>{a.section_invoked||"—"}</td>
+              <td style={S.td}>{a.tax_period||"—"}</td>
+              <td style={{...S.td,color:"#e3b341",fontWeight:600}}>{fR(a.demand_amount)}</td>
+              <td style={S.td}>{badge(a.status,a.status==="filed"?"green":a.status==="reviewed"?"blue":"amber")}</td>
+              <td style={S.tdR}><button onClick={e=>{e.stopPropagation();delAppeal(a.id);}} style={{...S.btnR,fontSize:10,padding:"3px 8px"}}>Del</button></td>
+            </tr>
+          ))}</tbody></table>
+        </div>
+      )
+    )}
+  </div>);
+}
+
+// ── Appeal Workspace (5-step flow) ────────────────────────────────────────────
+function AppealWorkspace({token,toast,company,appeal,onBack,onRefresh}){
+  const[step,setStep]=useState(appeal._isNew?1:appeal.ai_draft?4:2);
+  const cid=company?.id;
+  const fR=n=>`₹${Number(n||0).toLocaleString("en-IN")}`;
+  const STEPS=[{n:1,label:"Basic Details"},{n:2,label:"Upload Order"},{n:3,label:"Facts & Grounds"},{n:4,label:"AI Draft"},{n:5,label:"Download"}];
+
+  // Step 1 form state
+  const[f,setF]=useState({
+    appeal_to:appeal.appeal_to||APPEAL_FORUMS[0],
+    order_ref_no:appeal.order_ref_no||"",order_date:appeal.order_date||"",
+    order_type:appeal.order_type||ORDER_TYPES[0],section_invoked:appeal.section_invoked||"",
+    demand_amount:String(appeal.demand_amount||0),tax_period:appeal.tax_period||"",
+    issuing_officer:appeal.issuing_officer||"",jurisdiction:appeal.jurisdiction||"",
+  });
+  const[appealId,setAppealId]=useState(appeal.id||null);
+
+  // Step 2 — order scan
+  const[orderFile,setOrderFile]=useState(null);const[scanning,setScanning]=useState(false);const[scanResult,setScanResult]=useState(null);
+
+  // Step 3 — facts & grounds
+  const[facts,setFacts]=useState(appeal.facts_summary||"");
+  const[grounds,setGrounds]=useState(appeal.grounds?.length>0?appeal.grounds:[
+    {ground_no:1,heading:"",text:"",references:[]},
+  ]);
+  const[delay,setDelay]=useState(String(appeal.delay_days||0));
+  const[condonation,setCondonation]=useState(appeal.condonation_reason||"");
+  const[prayer,setPrayer]=useState(appeal.prayer||"Set aside the impugned order in its entirety and grant full relief to the Appellant.");
+  const[annexures,setAnnexures]=useState(appeal.annexures?.length>0?appeal.annexures:[
+    {label:"Annexure A",description:"Impugned Order"},
+    {label:"Annexure B",description:"Relevant Invoices / Documents"},
+  ]);
+
+  // Step 4 — AI draft
+  const[draft,setDraft]=useState(appeal.ai_draft||"");
+  const[refsUsed,setRefsUsed]=useState(appeal.references_used||[]);
+  const[generating,setGenerating]=useState(false);
+  const[saving,setSaving]=useState(false);
+
+  const setGround=(i,k,v)=>{const n=[...grounds];n[i]={...n[i],[k]:v};setGrounds(n);};
+  const addGround=()=>setGrounds(p=>[...p,{ground_no:p.length+1,heading:"",text:"",references:[]}]);
+  const removeGround=i=>setGrounds(p=>p.filter((_,j)=>j!==i).map((g,j)=>({...g,ground_no:j+1})));
+
+  // Save Step 1 (create or update)
+  const saveStep1=async()=>{
+    if(!f.order_ref_no)return toast("Order Reference Number required","error");
+    setSaving(true);
+    try{
+      if(appealId){
+        await api(`/appeals/${appealId}`,"PUT",{...f,company_id:cid,demand_amount:parseFloat(f.demand_amount)||0},token);
+        toast("✅ Saved","success");setStep(2);
+      }else{
+        const d=await api("/appeals","POST",{...f,company_id:cid,demand_amount:parseFloat(f.demand_amount)||0},token);
+        setAppealId(d.appeal.id);toast("✅ Appeal created","success");setStep(2);
+      }
+    }catch(e){toast(e.message,"error");}
+    setSaving(false);
+  };
+
+  // Step 2 — scan the order
+  const scanOrder=async()=>{
+    if(!orderFile)return toast("Select PDF or image of the order","error");
+    setScanning(true);
+    try{
+      const fd=new FormData();fd.append("file",orderFile);
+      const res=await fetch(`${API}/appeals/${appealId}/scan-order`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body:fd});
+      const d=await res.json();
+      if(d.success){
+        setScanResult(d.summary);
+        // Auto-fill fields from OCR if blank
+        if(d.summary){
+          setF(p=>({
+            ...p,
+            order_ref_no:p.order_ref_no||d.summary.order_ref_no||p.order_ref_no,
+            order_date:p.order_date||d.summary.order_date||p.order_date,
+            section_invoked:p.section_invoked||d.summary.section_invoked||p.section_invoked,
+            demand_amount:p.demand_amount==="0"?String(d.summary.demand_amount||0):p.demand_amount,
+            issuing_officer:p.issuing_officer||d.summary.issuing_officer||p.issuing_officer,
+            tax_period:p.tax_period||d.summary.tax_period||p.tax_period,
+          }));
+          // Auto-populate grounds from order's grounds_of_demand
+          if(d.summary.grounds_of_demand?.length>0&&grounds.every(g=>!g.text)){
+            setGrounds(d.summary.grounds_of_demand.map((g,i)=>({ground_no:i+1,heading:`Ground ${i+1}`,text:g,references:[]})));
+          }
+          if(!facts&&d.summary.grounds_of_demand)
+            setFacts(`Order dated ${d.summary.order_date||"—"} was passed under ${d.summary.section_invoked||"—"} raising a demand of ₹${(d.summary.demand_amount||0).toLocaleString("en-IN")} for the period ${d.summary.tax_period||"—"}.`);
+        }
+        toast("✅ Order scanned — fields auto-filled. Proceed to Step 3.","success");
+      }else toast(d.message,"error");
+    }catch(e){toast("Scan failed: "+e.message,"error");}
+    setScanning(false);
+  };
+
+  // Step 3 — save facts & grounds
+  const saveStep3=async()=>{
+    setSaving(true);
+    try{
+      await api(`/appeals/${appealId}`,"PUT",{
+        ...f,company_id:cid,demand_amount:parseFloat(f.demand_amount)||0,
+        facts_summary:facts,grounds,delay_days:parseInt(delay)||0,
+        condonation_reason:condonation,prayer,annexures
+      },token);
+      toast("✅ Facts & Grounds saved","success");setStep(4);
+    }catch(e){toast(e.message,"error");}
+    setSaving(false);
+  };
+
+  // Step 4 — generate AI draft
+  const generateDraft=async()=>{
+    setGenerating(true);
+    try{
+      const d=await api(`/appeals/${appealId}/generate-draft`,"POST",null,token);
+      setDraft(d.draft);setRefsUsed(d.references_used||[]);
+      toast(d.grounded
+        ?`✅ Draft generated with ${d.ref_count} Legal Library references!`
+        :"⚠ Draft generated — Legal Library is empty. Add references for a fully-cited appeal.",
+        "success");
+    }catch(e){toast(e.message,"error");}
+    setGenerating(false);
+  };
+
+  const saveDraftEdits=async()=>{
+    try{await api(`/appeals/${appealId}`,"PUT",{...f,company_id:cid,demand_amount:parseFloat(f.demand_amount)||0,facts_summary:facts,grounds,ai_draft:draft,status:"reviewed"},token);toast("✅ Saved as reviewed","success");}
+    catch(e){toast(e.message,"error");}
+  };
+
+  const downloadWord=()=>{window.open(`${API}/appeals/${appealId}/download?token=${token}`,"_blank");};
+
+  const StepBar=()=>(
+    <div style={{display:"flex",alignItems:"center",marginBottom:20,overflowX:"auto",gap:4}}>
+      {STEPS.map((s,i)=>(
+        <React.Fragment key={s.n}>
+          <div onClick={()=>appealId&&s.n>1&&setStep(s.n)} style={{display:"flex",alignItems:"center",gap:6,cursor:appealId||s.n===1?"pointer":"not-allowed",flexShrink:0}}>
+            <div style={{width:28,height:28,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,
+              background:step===s.n?"#0B6623":step>s.n?"#238636":"#1c2333",
+              color:step>=s.n?"#fff":C.muted,border:`2px solid ${step>=s.n?"#0B6623":C.border}`}}>{step>s.n?"✓":s.n}</div>
+            <span style={{fontSize:11,color:step===s.n?"#fff":step>s.n?"#3fb950":C.muted,whiteSpace:"nowrap"}}>{s.label}</span>
+          </div>
+          {i<STEPS.length-1&&<div style={{flex:1,height:2,background:step>s.n?"#238636":C.border,minWidth:12}}/>}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+
+  return(<div>
+    <button onClick={onBack} style={{...S.btnO,marginBottom:14,fontSize:12}}>← All Appeals</button>
+    {appealId&&<div style={{fontSize:11,color:C.muted,marginBottom:10}}>Appeal ID: {appealId} · Status: {appeal.status||"draft"}</div>}
+    <StepBar/>
+
+    {/* ── STEP 1: Basic Details ── */}
+    {step===1&&(<div>
+      <div style={{...S.card,borderLeft:"3px solid #1F6FEB"}}>
+        <div style={{fontWeight:700,color:"#58a6ff",marginBottom:14}}>Step 1 — Basic Details of Impugned Order</div>
+        <div style={S.col2}>
+          <div style={S.fg}><label style={S.label}>Appeal Forum *</label>
+            <select style={S.select} value={f.appeal_to} onChange={e=>setF(p=>({...p,appeal_to:e.target.value}))}>
+              {APPEAL_FORUMS.map(t=><option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div style={S.fg}><label style={S.label}>Order Type *</label>
+            <select style={S.select} value={f.order_type} onChange={e=>setF(p=>({...p,order_type:e.target.value}))}>
+              {ORDER_TYPES.map(t=><option key={t}>{t}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={S.col2}>
+          <div style={S.fg}><label style={S.label}>Order / Reference No. *</label>
+            <input style={S.input} value={f.order_ref_no} onChange={e=>setF(p=>({...p,order_ref_no:e.target.value}))} placeholder="e.g. ZA0701240023456"/></div>
+          <div style={S.fg}><label style={S.label}>Order Date</label>
+            <input type="date" style={S.input} value={f.order_date} onChange={e=>setF(p=>({...p,order_date:e.target.value}))}/></div>
+        </div>
+        <div style={S.col2}>
+          <div style={S.fg}><label style={S.label}>Section(s) Invoked</label>
+            <input style={S.input} value={f.section_invoked} onChange={e=>setF(p=>({...p,section_invoked:e.target.value}))} placeholder="e.g. Section 73, Section 16(4)"/></div>
+          <div style={S.fg}><label style={S.label}>Tax Period</label>
+            <input style={S.input} value={f.tax_period} onChange={e=>setF(p=>({...p,tax_period:e.target.value}))} placeholder="e.g. 2021-22 / Apr 2021 – Mar 2022"/></div>
+        </div>
+        <div style={S.col2}>
+          <div style={S.fg}><label style={S.label}>Demand Amount (₹)</label>
+            <input type="number" style={S.input} value={f.demand_amount} onChange={e=>setF(p=>({...p,demand_amount:e.target.value}))}/></div>
+          <div style={S.fg}><label style={S.label}>Issuing Officer</label>
+            <input style={S.input} value={f.issuing_officer} onChange={e=>setF(p=>({...p,issuing_officer:e.target.value}))} placeholder="Designation & Name"/></div>
+        </div>
+        <div style={S.fg}><label style={S.label}>Jurisdiction / GST Office</label>
+          <input style={S.input} value={f.jurisdiction} onChange={e=>setF(p=>({...p,jurisdiction:e.target.value}))} placeholder="e.g. CGST Division, Agra"/></div>
+      </div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <button onClick={saveStep1} disabled={saving} style={S.btn}>{saving?"Saving...":"Save & Continue →"}</button>
+      </div>
+    </div>)}
+
+    {/* ── STEP 2: Upload Order ── */}
+    {step===2&&(<div>
+      <div style={{...S.card,borderLeft:"3px solid #238636"}}>
+        <div style={{fontWeight:700,color:"#3fb950",marginBottom:10}}>Step 2 — Upload Impugned Order (PDF / Photo)</div>
+        <div style={{fontSize:12,color:C.sub,marginBottom:14}}>AI will extract: GSTIN, demand amount, section invoked, grounds of demand. Fields auto-fill — you can edit them in Step 3.</div>
+        <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+          <label style={{...S.btnO,cursor:"pointer"}}>{orderFile?`✅ ${orderFile.name}`:"📁 Choose PDF or Image"}<input type="file" accept=".pdf,image/*" onChange={e=>setOrderFile(e.target.files[0])} style={{display:"none"}}/></label>
+          <button onClick={scanOrder} disabled={!orderFile||scanning} style={{...S.btn,opacity:!orderFile?0.5:1}}>{scanning?"🔍 Reading order...":"🔍 Scan with AI"}</button>
+        </div>
+        {scanResult&&(<div style={{...S.card,background:"#0c1922",marginTop:14}}>
+          <div style={{fontSize:11,fontWeight:600,color:"#3fb950",marginBottom:8}}>✅ Extracted from Order:</div>
+          {[["Order Type",scanResult.order_type],["Section Invoked",scanResult.section_invoked],["Tax Period",scanResult.tax_period],["Demand Amount",scanResult.demand_amount?fR(scanResult.demand_amount):"—"],["Issuing Officer",scanResult.issuing_officer],["GSTIN",scanResult.gstin]].map(([l,v])=>v&&v!=="—"?(<div key={l} style={{display:"flex",gap:8,fontSize:12,padding:"2px 0"}}><span style={{color:C.muted,minWidth:130}}>{l}:</span><span style={{fontWeight:600}}>{v}</span></div>):null)}
+          {scanResult.grounds_of_demand?.length>0&&(<><div style={{fontSize:11,color:C.muted,marginTop:8}}>Grounds detected:</div><ul style={{margin:"4px 0",paddingLeft:18}}>{scanResult.grounds_of_demand.map((g,i)=><li key={i} style={{fontSize:11,color:C.sub}}>{g}</li>)}</ul></>)}
+        </div>)}
+      </div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <button onClick={()=>setStep(1)} style={S.btnO}>← Back</button>
+        <button onClick={()=>setStep(3)} style={S.btn}>Continue → Step 3</button>
+      </div>
+    </div>)}
+
+    {/* ── STEP 3: Facts & Grounds ── */}
+    {step===3&&(<div>
+      <div style={{...S.card,borderLeft:"3px solid #9333ea"}}>
+        <div style={{fontWeight:700,color:"#bf91f3",marginBottom:14}}>Step 3 — Statement of Facts &amp; Grounds of Appeal</div>
+        <div style={S.fg}><label style={S.label}>Statement of Facts *</label>
+          <textarea style={{...S.input,minHeight:100,lineHeight:1.6}} value={facts} onChange={e=>setFacts(e.target.value)} placeholder="Describe the factual background: what happened, what business you are in, what the officer alleged, what documents you had submitted, etc."/></div>
+        <div style={{fontWeight:600,color:C.text,margin:"14px 0 8px"}}>Grounds of Appeal <span style={{fontSize:11,color:C.muted,fontWeight:400}}>(AI will add legal citations from your library to each ground)</span></div>
+        {grounds.map((g,i)=>(
+          <div key={i} style={{...S.card,background:"#0c1922",marginBottom:10,borderLeft:"2px solid #9333ea"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <span style={{fontWeight:600,color:"#bf91f3",fontSize:12}}>Ground No. {g.ground_no}</span>
+              {grounds.length>1&&<button onClick={()=>removeGround(i)} style={{background:"none",border:"none",color:"#f85149",cursor:"pointer",fontSize:12}}>Remove</button>}
+            </div>
+            <div style={S.fg}><label style={S.label}>Heading / Title</label>
+              <input style={S.input} value={g.heading} onChange={e=>setGround(i,"heading",e.target.value)} placeholder="e.g. Denial of ITC without proper opportunity of hearing"/></div>
+            <div style={S.fg}><label style={S.label}>Details / Argument</label>
+              <textarea style={{...S.input,minHeight:80}} value={g.text} onChange={e=>setGround(i,"text",e.target.value)} placeholder="Explain the legal and factual basis for this ground. AI will add relevant citations from your Legal Library."/></div>
+          </div>
+        ))}
+        <button onClick={addGround} style={{...S.btnO,fontSize:11}}>+ Add Ground</button>
+        <div style={{marginTop:14,fontWeight:600,color:C.text,marginBottom:8}}>Delay Condonation</div>
+        <div style={S.col2}>
+          <div style={S.fg}><label style={S.label}>Delay in filing (days) — 0 if within time</label>
+            <input type="number" style={S.input} value={delay} onChange={e=>setDelay(e.target.value)} min="0"/></div>
+          {parseInt(delay)>0&&<div style={S.fg}><label style={S.label}>Reason for delay</label>
+            <textarea style={{...S.input,minHeight:50}} value={condonation} onChange={e=>setCondonation(e.target.value)} placeholder="Sufficient cause for delay..."/></div>}
+        </div>
+        <div style={S.fg}><label style={S.label}>Prayer (relief sought)</label>
+          <textarea style={{...S.input,minHeight:60}} value={prayer} onChange={e=>setPrayer(e.target.value)}/></div>
+        <div style={{fontWeight:600,color:C.text,margin:"14px 0 8px"}}>Annexures / Documents List</div>
+        {annexures.map((a,i)=>(
+          <div key={i} style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
+            <input style={{...S.input,width:120}} value={a.label} onChange={e=>{const n=[...annexures];n[i]={...n[i],label:e.target.value};setAnnexures(n);}} placeholder="Annexure A"/>
+            <input style={{...S.input,flex:1}} value={a.description} onChange={e=>{const n=[...annexures];n[i]={...n[i],description:e.target.value};setAnnexures(n);}} placeholder="Description"/>
+            <button onClick={()=>setAnnexures(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#f85149",cursor:"pointer",fontSize:14}}>✕</button>
+          </div>
+        ))}
+        <button onClick={()=>setAnnexures(p=>[...p,{label:`Annexure ${String.fromCharCode(65+p.length)}`,description:""}])} style={{...S.btnO,fontSize:11}}>+ Add Annexure</button>
+      </div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <button onClick={()=>setStep(2)} style={S.btnO}>← Back</button>
+        <button onClick={saveStep3} disabled={saving} style={S.btn}>{saving?"Saving...":"Save & Generate Draft →"}</button>
+      </div>
+    </div>)}
+
+    {/* ── STEP 4: AI Draft ── */}
+    {step===4&&(<div>
+      <div style={{...S.card,borderLeft:"3px solid #0B6623"}}>
+        <div style={{fontWeight:700,color:"#3fb950",marginBottom:8}}>Step 4 — AI-Generated Appeal Draft</div>
+        <div style={{fontSize:11,color:C.sub,marginBottom:14}}>AI searches your Legal Library for all matching Act sections, Rules, Circulars and Court orders, then drafts the appeal citing maximum references per ground.</div>
+        {!draft&&<button onClick={generateDraft} disabled={generating||!appealId} style={{...S.btn,marginBottom:14}}>{generating?"✨ Drafting appeal...":"✨ Generate Appeal Draft"}</button>}
+        {generating&&(<div style={{...S.card,background:"#0c1922",textAlign:"center",padding:30}}>
+          <div style={{fontSize:32,marginBottom:10}}>⚖️</div>
+          <div style={{fontWeight:700,color:"#bf91f3",marginBottom:6}}>AI is drafting your appeal...</div>
+          <div style={{fontSize:11,color:C.muted}}>Searching Legal Library → matching sections & case law → drafting grounds with citations</div>
+        </div>)}
+        {draft&&(<>
+          {refsUsed.length>0&&(<div style={{...S.card,background:"#0d2818",border:"1px solid #238636",marginBottom:10}}>
+            <div style={{fontWeight:600,color:"#3fb950",marginBottom:6}}>✅ {refsUsed.length} Legal Library references cited:</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {refsUsed.map((r,i)=>(
+                <span key={i} style={{fontSize:10,padding:"3px 8px",borderRadius:10,background:"#0c1922",color:"#58a6ff",border:"1px solid #1f4872"}}>
+                  [REF-{i+1}] {r.ref_type==="case_law"?r.title.substring(0,30):`${r.act_name||""} ${r.reference_no||""}`.trim().substring(0,30)}
+                </span>
+              ))}
+            </div>
+          </div>)}
+          {refsUsed.length===0&&(<div style={{...S.card,background:"#2d1b00",border:"1px solid #9e6a03",marginBottom:10}}>
+            <span style={{fontSize:12,color:"#e3b341"}}>⚠ Legal Library is empty — draft has no citations. Upload GST Act sections, Rules, Circulars and Court orders to the Legal Library for a fully-cited appeal.</span>
+          </div>)}
+          <textarea style={{...S.input,minHeight:480,fontFamily:"'Times New Roman',serif",fontSize:12,lineHeight:1.8,whiteSpace:"pre-wrap"}} value={draft} onChange={e=>setDraft(e.target.value)}/>
+          <div style={{...S.card,background:"#2d0e0e",border:"1px solid #6e1c1c",marginTop:10,padding:10}}>
+            <span style={{fontSize:11,color:"#f85149"}}>⚠ This is an AI-assisted draft for review purposes only. All citations must be verified. Have this reviewed by a qualified advocate/CA before filing with GSTAT or Appellate Authority.</span>
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+            <button onClick={generateDraft} disabled={generating} style={S.btnO}>{generating?"Regenerating...":"🔄 Regenerate"}</button>
+            <button onClick={saveDraftEdits} style={S.btnO}>💾 Save Edits</button>
+            <button onClick={()=>setStep(5)} style={S.btn}>Download → Step 5</button>
+          </div>
+        </>)}
+      </div>
+      {!draft&&<div style={{display:"flex",gap:8,justifyContent:"flex-start",marginTop:10}}><button onClick={()=>setStep(3)} style={S.btnO}>← Back to Grounds</button></div>}
+    </div>)}
+
+    {/* ── STEP 5: Download ── */}
+    {step===5&&(<div>
+      <div style={{...S.card,background:"#0d2818",border:"1px solid #238636",textAlign:"center",padding:30}}>
+        <div style={{fontSize:48,marginBottom:12}}>📄</div>
+        <div style={{fontWeight:700,fontSize:16,color:"#3fb950",marginBottom:6}}>Appeal Draft Ready</div>
+        <div style={{fontSize:12,color:C.sub,marginBottom:20}}>
+          {refsUsed.length>0?`${refsUsed.length} Legal Library references cited — each ground has citations from your uploaded Act sections, Rules, Circulars and Court orders.`:"No references cited (Legal Library empty)."}
+        </div>
+        <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          <button onClick={downloadWord} style={{...S.btnG,fontSize:14,padding:"12px 24px"}}>📝 Download as Word (.doc)</button>
+        </div>
+        <div style={{marginTop:20,fontSize:11,color:"#e3b341"}}>⚠ Review carefully before filing. Have it vetted by a qualified advocate/CA.</div>
+      </div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-start",marginTop:14}}>
+        <button onClick={()=>setStep(4)} style={S.btnO}>← Back to Draft</button>
+      </div>
+    </div>)}
+  </div>);
 }
